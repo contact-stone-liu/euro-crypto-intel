@@ -75,14 +75,7 @@ export default async function Page() {
     <main className="page">
       <header className="hero">
         <div className="hero-title">欧洲媒体视角：日更加密情报看板</div>
-        <div className="hero-sub">
-          Top5 新闻 · 过去24小时滚动窗口 · 中文输出 · 交易所/KOL/BD 导向
-        </div>
         <div className="hero-stats">
-          <div>
-            <div className="stat-label">最近一次触发（UTC）</div>
-            <div className="stat-value">{statusTime ?? "暂无"}</div>
-          </div>
           <div>
             <div className="stat-label">当前展示批次（UTC）</div>
             <div className="stat-value">{showTime ?? "暂无"}</div>

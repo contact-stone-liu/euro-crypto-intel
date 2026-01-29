@@ -17,6 +17,11 @@ a {
   box-sizing: border-box;
 }
 
+::selection {
+  background: rgba(255, 240, 215, 0.9);
+  color: inherit;
+}
+
 code {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
@@ -54,7 +59,7 @@ code {
 .hero-stats {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 

@@ -16,17 +16,13 @@ const IMPACT_RANGE_RE = /\d+\s*[-~]\s*\d+%/;
 
 export const TopicCardSchema = z.object({
   title: z.string().min(1).max(30),
-  category: z.string().min(1).max(12),
+  category: z.string().min(1).max(30),
   news_brief: z.string().min(1).max(100),
   tldr: z.string().min(1).max(90),
   bd_impact: z
     .string()
     .min(1)
     .max(80)
-    .refine(
-      (s) => ChainDimensions.some((k) => s.includes(k)),
-      "bd_impact must include chain dimension keyword"
-    )
     .refine(
       (s) => IMPACT_RANGE_RE.test(s),
       "bd_impact must include impact range like 10-30%"

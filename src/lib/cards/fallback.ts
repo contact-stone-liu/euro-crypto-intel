@@ -134,7 +134,7 @@ export function buildFallbackCard(input: {
 
   return {
     title: titleCn.slice(0, 30),
-    category: cat,
+    category: "新闻",
     news_brief: newsBrief,
     tldr,
     bd_impact: pickBdImpact(cat).slice(0, 80),

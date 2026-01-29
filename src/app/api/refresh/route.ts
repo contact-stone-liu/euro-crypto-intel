@@ -102,6 +102,13 @@ const EURO_DOMAIN_ALLOWLIST = new Set(
     .filter(Boolean)
 );
 
+const EXCLUDE_DOMAINS = new Set(
+  (process.env.EXCLUDE_DOMAINS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+);
+
 function isEuropeArticle(a: any): boolean {
   const sc = String(a?.sourceCountry || a?.sourcecountry || "").toUpperCase();
   if (sc && EURO_COUNTRIES.has(sc)) return true;
@@ -269,6 +276,8 @@ export async function GET(req: NextRequest) {
     for (const a of articlesRaw) {
       const url = a?.url;
       if (!url) continue;
+      const domain = String(a?.domain || "").toLowerCase();
+      if (domain && EXCLUDE_DOMAINS.has(domain)) continue;
       const cu = canonicalizeUrl(url);
       if (!cu) continue;
       if (seen.has(cu)) continue;
