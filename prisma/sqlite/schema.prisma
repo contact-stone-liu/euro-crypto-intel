@@ -1,0 +1,70 @@
+// prisma/sqlite/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/lib/db/generated/sqlite"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Batch {
+  id                 String   @id
+  createdAtUtc       DateTime @default(now())
+  windowStartUtc     DateTime
+  windowEndUtc       DateTime
+
+  status             String   // "running" | "success" | "failed"
+  error              String?
+
+  gdeltQuery          String
+  gdeltUrl            String
+  articleCount        Int
+  europeArticleCount  Int
+
+  supplementLinksText String?  // CryptoPanic links JSON string (MVP 可空)
+
+  cards              TopicCard[]
+  articles            IngestedArticle[]
+}
+
+model TopicCard {
+  id          String   @id @default(cuid())
+  createdAtUtc DateTime @default(now())
+
+  batchId     String
+  rank        Int
+  score       Float
+  clusterKey  String
+
+  // 严格 JSON 的字符串化结果（SQLite 不支持 Json 类型，所以存 TEXT）
+  cardJsonText String
+
+  batch       Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rank])
+}
+
+model IngestedArticle {
+  id             String   @id @default(cuid())
+  createdAtUtc   DateTime @default(now())
+
+  batchId        String
+
+  url            String
+  urlCanonical   String
+  title          String
+  excerpt        String?
+  domain         String?
+  sourceCountry  String?
+  language       String?
+
+  seenDateUtc    DateTime?
+
+  rawJsonText    String
+
+  batch          Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, urlCanonical])
+}

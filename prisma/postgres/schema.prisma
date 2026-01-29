@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/lib/db/generated/postgres"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Batch {
+  id              String    @id @default(cuid())
+  batchId         String    @unique
+  startedAtUtc    DateTime  @default(now())
+  finishedAtUtc   DateTime?
+  ok              Boolean   @default(false)
+  errorMessage    String?
+
+  gdeltQuery      String
+  // Postgres 支持 Json：这里就用 Json
+  supplementLinks Json?
+
+  createdAtUtc    DateTime  @default(now())
+  topicCards      TopicCard[]
+
+  @@index([ok, startedAtUtc])
+}
+
+model TopicCard {
+  id            String   @id @default(cuid())
+  batchId       String
+  batch         Batch    @relation(fields: [batchId], references: [batchId], onDelete: Cascade)
+
+  rank          Int
+  score         Float
+
+  // Postgres 支持 Json：这里就用 Json
+  cardJson      Json
+
+  createdAtUtc  DateTime @default(now())
+
+  @@unique([batchId, rank])
+  @@index([batchId, score])
+}
