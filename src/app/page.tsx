@@ -160,7 +160,6 @@ export default async function Page() {
                 <span className="card-rank">{idx + 1}</span>
                 {c.title}
               </div>
-              <div className="card-cat">{c.category || "新闻"}</div>
             </div>
 
             <div className="card-row">
