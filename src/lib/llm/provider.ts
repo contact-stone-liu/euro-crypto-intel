@@ -113,9 +113,6 @@ function extractKeyTokens(title: string): string[] {
   const nums = title.match(/\d+([.,]\d+)?%?/g) || [];
   nums.forEach((n) => tokens.add(n));
 
-  const caps = title.match(/\b[A-Z][A-Za-z0-9&\-]{2,}\b/g) || [];
-  caps.forEach((w) => tokens.add(w));
-
   const acronyms = title.match(/\b[A-Z]{2,}\b/g) || [];
   acronyms.forEach((w) => tokens.add(w));
 

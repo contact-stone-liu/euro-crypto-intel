@@ -1,16 +1,5 @@
 import { z } from "zod";
 
-export const Category = z.enum([
-  "监管与合规",
-  "执法与诉讼",
-  "交易所与产品",
-  "稳定币与支付通道",
-  "机构与ETF",
-  "安全与黑客",
-  "税务与银行",
-  "市场与宏观叙事",
-]);
-
 export const Confidence = z.enum(["高", "中", "低"]);
 
 export const ChainDimensions = [
@@ -27,7 +16,7 @@ const IMPACT_RANGE_RE = /\d+\s*[-~]\s*\d+%/;
 
 export const TopicCardSchema = z.object({
   title: z.string().min(1).max(30),
-  category: Category,
+  category: z.string().min(1).max(12),
   news_brief: z.string().min(1).max(100),
   tldr: z.string().min(1).max(90),
   bd_impact: z
