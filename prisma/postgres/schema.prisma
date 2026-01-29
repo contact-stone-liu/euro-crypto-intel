@@ -4,41 +4,65 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 model Batch {
-  id              String    @id @default(cuid())
-  batchId         String    @unique
-  startedAtUtc    DateTime  @default(now())
-  finishedAtUtc   DateTime?
-  ok              Boolean   @default(false)
-  errorMessage    String?
+  id                 String   @id
+  createdAtUtc       DateTime @default(now())
+  windowStartUtc     DateTime
+  windowEndUtc       DateTime
 
-  gdeltQuery      String
-  // Postgres 支持 Json：这里就用 Json
-  supplementLinks Json?
+  status             String   // "running" | "success" | "failed"
+  error              String?
 
-  createdAtUtc    DateTime  @default(now())
-  topicCards      TopicCard[]
+  gdeltQuery          String
+  gdeltUrl            String
+  articleCount        Int
+  europeArticleCount  Int
 
-  @@index([ok, startedAtUtc])
+  supplementLinksText String?
+
+  cards               TopicCard[]
+  articles            IngestedArticle[]
 }
 
 model TopicCard {
-  id            String   @id @default(cuid())
-  batchId       String
-  batch         Batch    @relation(fields: [batchId], references: [batchId], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  createdAtUtc DateTime @default(now())
 
-  rank          Int
-  score         Float
+  batchId    String
+  rank       Int
+  score      Float
+  clusterKey String
 
-  // Postgres 支持 Json：这里就用 Json
-  cardJson      Json
+  cardJsonText String
 
-  createdAtUtc  DateTime @default(now())
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@unique([batchId, rank])
-  @@index([batchId, score])
+}
+
+model IngestedArticle {
+  id           String   @id @default(cuid())
+  createdAtUtc DateTime @default(now())
+
+  batchId String
+
+  url           String
+  urlCanonical  String
+  title         String
+  excerpt       String?
+  domain        String?
+  sourceCountry String?
+  language      String?
+
+  seenDateUtc DateTime?
+
+  rawJsonText String
+
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, urlCanonical])
 }
