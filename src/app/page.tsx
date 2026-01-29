@@ -51,6 +51,13 @@ export default async function Page() {
     ? `${statusError.slice(0, 300)}${statusError.length > 300 ? "…" : ""}`
     : null;
 
+  const llmLabel = latestOk?.llmModel
+    ? `${latestOk.llmProvider || "llm"} / ${latestOk.llmModel}`
+    : "未配置";
+  const llmUsed =
+    typeof latestOk?.llmUsedCount === "number"
+      ? `${latestOk.llmUsedCount}/${latestOk?.llmAttemptCount ?? 0}`
+      : "—";
   let cards: TopicCard[] = [];
   if (latestOk?.cards?.length) {
     cards = latestOk.cards
@@ -85,6 +92,12 @@ export default async function Page() {
             <div className="stat-value">
               {statusRunning ? "刷新中" : statusFailed ? "失败" : "正常"}
             </div>
+          </div>
+          <div>
+            <div className="stat-label">LLM</div>
+            <div className="stat-value">{llmLabel}</div>
+            <div className="stat-label">LLM 生成</div>
+            <div className="stat-value">{llmUsed}</div>
           </div>
         </div>
         {statusRunning && statusTime ? (
@@ -135,7 +148,7 @@ export default async function Page() {
               {cards.slice(0, 5).map((c, idx) => (
                 <tr key={idx}>
                   <td>{idx + 1}</td>
-                  <td>{c.title}</td>
+                  <td>{c.original_title || c.title}</td>
                   <td>{c.impact_axis}</td>
                   <td>{c.severity}</td>
                   <td>{c.source_name}</td>
@@ -158,8 +171,11 @@ export default async function Page() {
             <div className="card-head">
               <div className="card-title">
                 <span className="card-rank">{idx + 1}</span>
-                {c.title}
+                {c.original_title || c.title}
               </div>
+              {c.needs_review ? (
+                <div className="card-badge warn">需人工确认</div>
+              ) : null}
             </div>
 
             <div className="card-row">
@@ -198,12 +214,22 @@ export default async function Page() {
               <span>{c.bd_angle}</span>
             </div>
             <div className="card-row">
-              <span className="card-label">证据要点</span>
-              <ol className="card-evidence">
-                {(c.evidence_points || []).slice(0, 2).map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ol>
+              <span className="card-label">证据</span>
+              {c.evidence && c.evidence.length > 0 ? (
+                <ol className="card-evidence">
+                  {c.evidence.slice(0, 3).map((e, i) => (
+                    <li key={i}>
+                      <a href={e.url} target="_blank" rel="noreferrer">
+                        {e.text}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="evidence-note">
+                  {c.evidence_note || "未抓到正文/仅基于标题与元信息"}
+                </div>
+              )}
             </div>
             <div className="card-row">
               <span className="card-label">原文链接</span>

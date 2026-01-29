@@ -23,6 +23,11 @@ model Batch {
   europeArticleCount  Int
 
   supplementLinksText String?
+  llmProvider         String?
+  llmModel            String?
+  llmBaseUrl          String?
+  llmAttemptCount     Int?
+  llmUsedCount        Int?
 
   cards               TopicCard[]
   articles            IngestedArticle[]

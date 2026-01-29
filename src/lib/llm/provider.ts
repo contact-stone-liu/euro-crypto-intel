@@ -63,9 +63,8 @@ export async function generateCardWithLLM(input: {
   const allowed = new Set(input.evidencePack.map((e) => e.url));
   if (!allowed.has(z.data.url)) return null;
 
-  // 强制中文输出：标题/简述/影响必须含中文
+  // 强制中文输出：除标题外必须含中文（标题可为原文英文）
   if (
-    !hasChinese(z.data.title) ||
     !hasChinese(z.data.event_one_liner) ||
     !hasChinese(z.data.news_brief) ||
     !hasChinese(z.data.why_it_matters) ||

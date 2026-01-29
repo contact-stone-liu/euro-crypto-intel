@@ -12,6 +12,7 @@ import {
   canonicalizeUrl,
   normalizeGdeltQuery,
 } from "@/lib/sources/gdelt";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,84 @@ export const dynamic = "force-dynamic";
 // ---------- utils ----------
 function nowUtcIso() {
   return new Date().toISOString();
+}
+
+type FetchStatus = "ok" | "forbidden" | "timeout" | "no_content" | "error";
+
+const FETCH_TIMEOUT_MS = 8000;
+
+function stripHtmlToText(html: string): string {
+  let text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+
+  text = text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return text;
+}
+
+async function fetchArticleText(url: string): Promise<{
+  status: FetchStatus;
+  error?: string;
+  text?: string;
+}> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: controller.signal,
+    });
+    if (res.status === 403) return { status: "forbidden", error: "HTTP 403" };
+    if (!res.ok) {
+      return {
+        status: "error",
+        error: `HTTP ${res.status} ${res.statusText}`,
+      };
+    }
+    const html = await res.text();
+    const text = stripHtmlToText(html);
+    if (!text || text.length < 200) {
+      return { status: "no_content", error: "正文为空/过短" };
+    }
+    return { status: "ok", text };
+  } catch (e: any) {
+    if (String(e?.name || "").toLowerCase().includes("abort")) {
+      return { status: "timeout", error: "超时" };
+    }
+    return { status: "error", error: String(e?.message || e) };
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+function extractEvidencePoints(text: string, max = 3): string[] {
+  const parts = text
+    .split(/[。！？.!?]\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 8);
+  const picked: string[] = [];
+  for (const p of parts) {
+    const short = p.slice(0, 60);
+    if (!picked.includes(short)) picked.push(short);
+    if (picked.length >= max) break;
+  }
+  return picked;
 }
 
 function safeParseJson<T>(s: string, fallback: T): T {
@@ -58,6 +137,9 @@ const PUBLIC_REFRESH_COOLDOWN_SECONDS = Number(
 const PUBLIC_REFRESH_COOLDOWN_MINUTES = Number(
   process.env.PUBLIC_REFRESH_COOLDOWN_MINUTES || "0"
 );
+const LLM_PROVIDER = (process.env.LLM_PROVIDER || "").trim();
+const LLM_MODEL = (process.env.LLM_MODEL || "").trim();
+const LLM_BASE_URL = (process.env.LLM_BASE_URL || "").trim();
 
 async function canPublicRefresh() {
   if (!PUBLIC_REFRESH) return { ok: false, reason: "Public refresh disabled." };
@@ -258,6 +340,11 @@ export async function GET(req: NextRequest) {
         articleCount: 0,
         europeArticleCount: 0,
         supplementLinksText: null,
+        llmProvider: LLM_PROVIDER || null,
+        llmModel: LLM_MODEL || null,
+        llmBaseUrl: LLM_BASE_URL || null,
+        llmAttemptCount: 0,
+        llmUsedCount: 0,
       },
     });
     batchCreated = true;
@@ -487,6 +574,8 @@ export async function GET(req: NextRequest) {
     }
 
     const cards = [];
+    let llmAttemptCount = 0;
+    let llmUsedCount = 0;
     for (let rank = 0; rank < chosen.length; rank++) {
       const c = chosen[rank];
       const primary = c.article;
@@ -500,17 +589,27 @@ export async function GET(req: NextRequest) {
         .filter(Boolean)
         .slice(0, 8);
 
+      const fetchResult = await fetchArticleText(String(primary?.url || ""));
+      const bodyPoints =
+        fetchResult.status === "ok" && fetchResult.text
+          ? extractEvidencePoints(fetchResult.text, 3)
+          : [];
+      const bodyEvidence = bodyPoints.map((text) => ({
+        text,
+        url: String(primary?.url || ""),
+        source_name: String(primary?.domain || "unknown"),
+      }));
+
       let card = null;
-      if (evidencePack.length >= 3) {
+      if (fetchResult.status === "ok" && evidencePack.length >= 1) {
+        llmAttemptCount += 1;
         const prompt = buildRuntimeUserPrompt({
           evidencePack,
           volumeSignals: c.volumeSignals,
           batchId,
-          titleMustInclude: extractKeyTokensFromTitle(
-            String(primary?.title || "")
-          ),
         });
         card = await generateCardWithLLM({ prompt, evidencePack });
+        if (card) llmUsedCount += 1;
       }
 
       if (!card) {
@@ -519,7 +618,21 @@ export async function GET(req: NextRequest) {
           primaryExcerpt: primary?.excerpt
             ? String(primary.excerpt).slice(0, 140)
             : null,
-          evidence,
+          evidence: bodyEvidence.length
+            ? bodyEvidence.map((e, idx) => ({
+                ...e,
+                published_time_utc:
+                  evidence[idx]?.published_time_utc ||
+                  evidence[0]?.published_time_utc ||
+                  nowUtcIso(),
+              }))
+            : evidence.map((e) => ({ ...e, text: undefined })),
+          evidenceNote:
+            fetchResult.status === "ok"
+              ? null
+              : "未抓到正文/仅基于标题与元信息",
+          fetchStatus: fetchResult.status,
+          fetchError: fetchResult.error || null,
           volumeSignals: c.volumeSignals,
           batchId,
           entities: titles,
@@ -532,6 +645,45 @@ export async function GET(req: NextRequest) {
         card.source_name = card.source_name || ev0.source_name;
         card.published_time = card.published_time || ev0.published_time_utc;
         card.url = card.url || ev0.url;
+      }
+      const originalTitle = String(primary?.title || "").trim();
+      if (originalTitle) {
+        card.title = originalTitle;
+        card.original_title = originalTitle;
+      }
+      card.fetch_status = fetchResult.status;
+      card.fetch_error = fetchResult.error || undefined;
+      if (fetchResult.status !== "ok") {
+        card.needs_review = true;
+        card.confidence = "低";
+        card.impact_register = "中性";
+        card.impact_deposit = "中性";
+        card.impact_trading = "中性";
+        card.severity = "低";
+        card.why_it_matters =
+          "正文不可用，仅基于标题与元信息，影响暂无法确认（需人工确认）。";
+        card.bd_angle = "口径建议：先说明已关注事件，等待更多官方细节确认。";
+      }
+      if (bodyEvidence.length > 0) {
+        card.evidence = bodyEvidence.slice(0, 3);
+        card.evidence_points = bodyEvidence
+          .map((e) => e.text)
+          .filter(Boolean)
+          .slice(0, 3);
+      } else {
+        card.evidence = [];
+        card.evidence_note =
+          card.evidence_note || "未抓到正文/仅基于标题与元信息";
+      }
+      if (card.why_it_matters && card.evidence?.length) {
+        if (!/证据/.test(card.why_it_matters)) {
+          card.why_it_matters = `${card.why_it_matters}（见证据1）`;
+        }
+      }
+      if (card.bd_angle && card.evidence?.length) {
+        if (!/证据/.test(card.bd_angle)) {
+          card.bd_angle = `${card.bd_angle}（见证据1）`;
+        }
       }
       if (!card.source_region) {
         card.source_region = guessRegion(primary);
@@ -569,9 +721,12 @@ export async function GET(req: NextRequest) {
           articleCount: deduped.length,
           europeArticleCount: europeUnique.length,
           supplementLinksText,
+          llmAttemptCount,
+          llmUsedCount,
         },
       });
     }
+    revalidatePath("/");
 
     return NextResponse.json({
       ok: true,
@@ -611,4 +766,8 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  return GET(req);
 }

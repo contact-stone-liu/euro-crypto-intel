@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type RefreshResult = {
   ok?: boolean;
@@ -13,16 +14,18 @@ export default function RefreshPanel() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [last, setLast] = useState<RefreshResult | null>(null);
+  const router = useRouter();
 
   const doRefresh = async () => {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch(`/api/refresh`);
+      const res = await fetch(`/api/refresh`, { method: "POST" });
       const data = (await res.json()) as RefreshResult;
       setLast(data);
       if (data?.ok) {
-        setMsg("刷新成功，几秒后刷新页面即可看到最新新闻。");
+        setMsg("刷新成功，正在更新页面数据…");
+        router.refresh();
       } else {
         setMsg(`刷新失败：${data?.error || "unknown error"}`);
       }

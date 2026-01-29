@@ -24,6 +24,11 @@ model Batch {
   europeArticleCount  Int
 
   supplementLinksText String?  // CryptoPanic links JSON string (MVP 可空)
+  llmProvider         String?
+  llmModel            String?
+  llmBaseUrl          String?
+  llmAttemptCount     Int?
+  llmUsedCount        Int?
 
   cards              TopicCard[]
   articles            IngestedArticle[]

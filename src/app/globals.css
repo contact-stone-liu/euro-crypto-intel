@@ -112,6 +112,8 @@ code {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
+  word-break: break-word;
 }
 
 .card-rank {
@@ -140,6 +142,21 @@ code {
   line-height: 1.6;
 }
 
+.card-badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.card-badge.warn {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+
 .card-label {
   font-weight: 700;
   margin-right: 6px;
@@ -152,6 +169,16 @@ code {
 
 .card-evidence li {
   margin-bottom: 4px;
+}
+
+.evidence-note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9a3412;
+  background: #fff7ed;
+  border: 1px dashed #fed7aa;
+  padding: 6px 8px;
+  border-radius: 8px;
 }
 
 .card-time {
@@ -251,6 +278,11 @@ code {
   text-align: left;
   vertical-align: top;
   white-space: nowrap;
+}
+
+.summary-table td:nth-child(2) {
+  white-space: normal;
+  word-break: break-word;
 }
 
 .summary-table thead th {
