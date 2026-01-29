@@ -110,6 +110,48 @@ export default async function Page() {
 
       <RefreshPanel />
 
+      {cards.length === 0 ? (
+        <div className="hero-tip warn">24小时内高质量样本不足。</div>
+      ) : cards.length < 5 ? (
+        <div className="hero-tip warn">24小时内高质量样本不足，已展示可用新闻。</div>
+      ) : null}
+
+      <section className="panel">
+        <div className="panel-title">Top5 总览表</div>
+        <div className="table-wrap">
+          <table className="summary-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>中文情报标题</th>
+                <th>链路主轴</th>
+                <th>严重度</th>
+                <th>来源媒体</th>
+                <th>发布时间</th>
+                <th>链接</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cards.slice(0, 5).map((c, idx) => (
+                <tr key={idx}>
+                  <td>{idx + 1}</td>
+                  <td>{c.title}</td>
+                  <td>{c.impact_axis}</td>
+                  <td>{c.severity}</td>
+                  <td>{c.source_name}</td>
+                  <td>{c.published_time}</td>
+                  <td>
+                    <a href={c.url} target="_blank" rel="noreferrer">
+                      原文
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <div className="card-grid">
         {cards.slice(0, 5).map((c, idx) => (
           <section key={idx} className="card">
@@ -118,40 +160,57 @@ export default async function Page() {
                 <span className="card-rank">{idx + 1}</span>
                 {c.title}
               </div>
-              <div className="card-cat">{c.category}</div>
+              <div className="card-cat">{c.category || "新闻"}</div>
             </div>
 
             <div className="card-row">
-              <span className="card-label">TL;DR</span>
-              <span>{c.tldr}</span>
+              <span className="card-label">来源</span>
+              <span>
+                {c.source_name}
+                {c.source_region ? `（${c.source_region}）` : ""}
+                {c.source_note ? `｜${c.source_note}` : ""}
+              </span>
+            </div>
+            <div className="card-row">
+              <span className="card-label">发布时间</span>
+              <span>{c.published_time}</span>
+            </div>
+            <div className="card-row">
+              <span className="card-label">事件一句话</span>
+              <span>{c.event_one_liner}</span>
             </div>
             <div className="card-row">
               <span className="card-label">新闻简述</span>
-              <span>{c.news_brief || c.tldr}</span>
+              <span>{c.news_brief}</span>
             </div>
             <div className="card-row">
-              <span className="card-label">BD影响</span>
-              <span>{c.bd_impact}</span>
+              <span className="card-label">链路冲击判定</span>
+              <span>
+                注册：{c.impact_register} ｜ 入金：{c.impact_deposit} ｜ 交易：
+                {c.impact_trading}
+              </span>
             </div>
             <div className="card-row">
-              <span className="card-label">关键实体</span>
-              <span>{(c.entities || []).join("、") || "—"}</span>
+              <span className="card-label">为什么会影响</span>
+              <span>{c.why_it_matters}</span>
             </div>
-
             <div className="card-row">
-              <span className="card-label">证据链接</span>
+              <span className="card-label">BD可用口径</span>
+              <span>{c.bd_angle}</span>
+            </div>
+            <div className="card-row">
+              <span className="card-label">证据要点</span>
               <ol className="card-evidence">
-                {(c.evidence || []).slice(0, 3).map((e, i) => (
-                  <li key={i}>
-                    <a href={e.url} target="_blank" rel="noreferrer">
-                      {e.source_name}
-                    </a>
-                    <span className="card-time">
-                      （{e.published_time_utc} UTC）
-                    </span>
-                  </li>
+                {(c.evidence_points || []).slice(0, 2).map((e, i) => (
+                  <li key={i}>{e}</li>
                 ))}
               </ol>
+            </div>
+            <div className="card-row">
+              <span className="card-label">原文链接</span>
+              <a href={c.url} target="_blank" rel="noreferrer">
+                {c.url}
+              </a>
             </div>
 
             <div className="card-foot">

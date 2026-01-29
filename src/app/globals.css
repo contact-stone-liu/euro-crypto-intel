@@ -233,6 +233,31 @@ code {
   padding-left: 18px;
 }
 
+.table-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.summary-table th,
+.summary-table td {
+  border: 1px solid #eee4d6;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.summary-table thead th {
+  background: #f7efe3;
+  font-weight: 700;
+}
+
 @media (max-width: 820px) {
   .hero-stats {
     grid-template-columns: 1fr;

@@ -59,16 +59,17 @@ export async function generateCardWithLLM(input: {
   const z = TopicCardSchema.safeParse(parsed);
   if (!z.success) return null;
 
-  // 关键：禁止编造证据链接 —— evidence url 必须来自 evidencePack
-  const allowed = new Set(input.evidencePack.map(e => e.url));
-  const evidenceOk = z.data.evidence.every(e => allowed.has(e.url));
-  if (!evidenceOk) return null;
+  // 关键：禁止编造证据链接 —— url 必须来自 evidencePack
+  const allowed = new Set(input.evidencePack.map((e) => e.url));
+  if (!allowed.has(z.data.url)) return null;
 
   // 强制中文输出：标题/简述/影响必须含中文
   if (
     !hasChinese(z.data.title) ||
+    !hasChinese(z.data.event_one_liner) ||
     !hasChinese(z.data.news_brief) ||
-    !hasChinese(z.data.bd_impact)
+    !hasChinese(z.data.why_it_matters) ||
+    !hasChinese(z.data.bd_angle)
   ) {
     return null;
   }

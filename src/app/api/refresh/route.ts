@@ -121,6 +121,15 @@ function isEuropeArticle(a: any): boolean {
   return false;
 }
 
+function guessRegion(a: any): string | undefined {
+  const sc = String(a?.sourceCountry || a?.sourcecountry || "").toUpperCase();
+  if (sc) return sc;
+  const domain = String(a?.domain || "").toLowerCase();
+  const tld = domain.split(".").pop() || "";
+  if (tld) return tld.toUpperCase();
+  return undefined;
+}
+
 function toEvidenceItem(a: any): EvidenceItem | null {
   if (!a?.url) return null;
   return {
@@ -287,7 +296,9 @@ export async function GET(req: NextRequest) {
 
     const europe = deduped.filter(isEuropeArticle);
     const europeUnique = dedupeByTitle(europe);
-    const picked = europeUnique;
+    const nonEurope = deduped.filter((a) => !isEuropeArticle(a));
+    const nonEuropeUnique = dedupeByTitle(nonEurope);
+    const picked = [...europeUnique, ...nonEuropeUnique];
 
     const crypto = await cryptoPromise;
     const supplementLinksText =
@@ -425,6 +436,7 @@ export async function GET(req: NextRequest) {
         relatedIndexes,
         volumeSignals,
         score,
+        isEuropeSource: isEuropeArticle(a),
       };
     });
 
@@ -452,7 +464,9 @@ export async function GET(req: NextRequest) {
       if (titleKey && titleKeys.has(titleKey)) continue;
       if (isTooSimilar(s.idx)) continue;
 
-      chosen.push(s);
+      if (s.isEuropeSource) {
+        chosen.push(s);
+      }
       if (domain) domainCount.set(domain, used + 1);
       if (titleKey) titleKeys.add(titleKey);
       if (chosen.length >= 5) break;
@@ -461,9 +475,11 @@ export async function GET(req: NextRequest) {
     if (chosen.length < 5) {
       for (const s of scored) {
         if (chosen.find((x) => x.idx === s.idx)) continue;
+        if (s.isEuropeSource) continue;
         const titleKey = normalizeTitle(s.article?.title || "");
         if (titleKey && titleKeys.has(titleKey)) continue;
         if (isTooSimilar(s.idx)) continue;
+        if (s.score < 2.6) continue;
         chosen.push(s);
         if (titleKey) titleKeys.add(titleKey);
         if (chosen.length >= 5) break;
@@ -506,8 +522,22 @@ export async function GET(req: NextRequest) {
           evidence,
           volumeSignals: c.volumeSignals,
           batchId,
-          titles,
+          entities: titles,
+          isEuropeSource: c.isEuropeSource,
         });
+      }
+
+      const ev0 = evidence[0];
+      if (ev0) {
+        card.source_name = card.source_name || ev0.source_name;
+        card.published_time = card.published_time || ev0.published_time_utc;
+        card.url = card.url || ev0.url;
+      }
+      if (!card.source_region) {
+        card.source_region = guessRegion(primary);
+      }
+      if (!c.isEuropeSource && !card.source_note) {
+        card.source_note = "非欧媒来源";
       }
 
       cards.push({
