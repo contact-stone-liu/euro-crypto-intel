@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { buildTfIdf } from "@/lib/cluster/tfidf";
-import { kmeans } from "@/lib/cluster/kmeans";
-import { scoreCluster } from "@/lib/scoring";
+import { buildTfIdf, cosine } from "@/lib/cluster/tfidf";
+import { scoreArticle } from "@/lib/scoring";
 import { buildFallbackCard } from "@/lib/cards/fallback";
 import { buildRuntimeUserPrompt, EvidenceItem } from "@/lib/prompts/runtimePrompt";
 import { generateCardWithLLM } from "@/lib/llm/provider";
@@ -99,57 +98,48 @@ function isEuropeArticle(a: any): boolean {
   return false;
 }
 
-function buildEvidencePack(items: any[]): EvidenceItem[] {
-  return items
-    .map((a) => {
-      if (!a?.url) return null;
-      return {
-        url: String(a.url),
-        title: String(a?.title || ""),
-        excerpt: a?.excerpt ? String(a.excerpt).slice(0, 500) : undefined,
-        source_name: String(a?.domain || "unknown"),
-        published_time_utc:
-          parseGdeltSeenDateUtc(a?.seendate)?.toISOString() || nowUtcIso(),
-      } as EvidenceItem;
-    })
-    .filter(Boolean) as EvidenceItem[];
+function toEvidenceItem(a: any): EvidenceItem | null {
+  if (!a?.url) return null;
+  return {
+    url: String(a.url),
+    title: String(a?.title || ""),
+    excerpt: a?.excerpt ? String(a.excerpt).slice(0, 500) : undefined,
+    source_name: String(a?.domain || "unknown"),
+    published_time_utc:
+      parseGdeltSeenDateUtc(a?.seendate)?.toISOString() || nowUtcIso(),
+  };
 }
 
-function pickEvidence(items: any[]): EvidenceItem[] {
-  const sorted = [...items].sort((x, y) => {
-    const tx = parseGdeltSeenDateUtc(x?.seendate)?.getTime() || 0;
-    const ty = parseGdeltSeenDateUtc(y?.seendate)?.getTime() || 0;
-    return ty - tx;
-  });
+function buildEvidencePack(items: any[]): EvidenceItem[] {
+  return items.map(toEvidenceItem).filter(Boolean) as EvidenceItem[];
+}
 
+function buildEvidenceForArticle(primary: any, related: any[]): EvidenceItem[] {
   const evidence: EvidenceItem[] = [];
   const usedDomain = new Set<string>();
 
-  for (const a of sorted) {
+  const primaryItem = toEvidenceItem(primary);
+  if (primaryItem) {
+    evidence.push(primaryItem);
+    const domain = String(primary?.domain || "").toLowerCase();
+    if (domain) usedDomain.add(domain);
+  }
+
+  for (const a of related) {
     const domain = String(a?.domain || "").toLowerCase();
-    if (!a?.url) continue;
+    const item = toEvidenceItem(a);
+    if (!item) continue;
     if (domain && usedDomain.has(domain)) continue;
     usedDomain.add(domain);
-    evidence.push({
-      url: String(a.url),
-      source_name: String(a?.domain || "unknown"),
-      published_time_utc:
-        parseGdeltSeenDateUtc(a?.seendate)?.toISOString() || nowUtcIso(),
-      title: String(a?.title || ""),
-    } as EvidenceItem);
+    evidence.push(item);
     if (evidence.length >= 3) break;
   }
 
   if (evidence.length < 3) {
-    for (const a of sorted) {
-      if (!a?.url) continue;
-      evidence.push({
-        url: String(a.url),
-        source_name: String(a?.domain || "unknown"),
-        published_time_utc:
-          parseGdeltSeenDateUtc(a?.seendate)?.toISOString() || nowUtcIso(),
-        title: String(a?.title || ""),
-      } as EvidenceItem);
+    for (const a of [primary, ...related]) {
+      const item = toEvidenceItem(a);
+      if (!item) continue;
+      evidence.push(item);
       if (evidence.length >= 3) break;
     }
   }
@@ -265,7 +255,7 @@ export async function GET(req: NextRequest) {
           fetched: articlesRaw.length,
           deduped: deduped.length,
           europe: europe.length,
-          usedForClustering: 0,
+          usedForRanking: 0,
         },
         top5: [],
         supplement_links: crypto.items || [],
@@ -300,82 +290,120 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 聚类
+    // Top5 新闻：按交易所/KOL/BD 影响排序
     const docs = picked.map((a, idx) => ({
       id: String(a?._urlCanonical || a?.url || idx),
       text: `${a?.title || ""} ${a?.excerpt || ""}`.slice(0, 5000),
     }));
 
     const { vectors } = buildTfIdf(docs);
-    const seed = Number(String(Date.now()).slice(-6)) || 42;
-    const km = kmeans(vectors, 5, seed, 12);
-    const labels =
-      km.labels.length === picked.length
-        ? km.labels
-        : new Array<number>(picked.length).fill(0);
+    const similarity: { index: number; score: number }[][] = Array.from(
+      { length: picked.length },
+      () => []
+    );
 
-    const clusters: Record<string, any[]> = {};
     for (let i = 0; i < picked.length; i++) {
-      const cid = String(labels[i] ?? 0);
-      (clusters[cid] ||= []).push(picked[i]);
+      for (let j = i + 1; j < picked.length; j++) {
+        const s = cosine(vectors[i], vectors[j]);
+        if (s <= 0) continue;
+        similarity[i].push({ index: j, score: s });
+        similarity[j].push({ index: i, score: s });
+      }
     }
 
-    const clusterSummaries = Object.entries(clusters).map(([cid, items]) => {
+    for (const arr of similarity) {
+      arr.sort((a, b) => b.score - a.score);
+    }
+
+    const scored = picked.map((a, idx) => {
+      const relatedIndexes = similarity[idx]
+        .filter((x) => x.score >= 0.2)
+        .slice(0, 8)
+        .map((x) => x.index);
+
+      const relatedSet = new Set<number>([idx, ...relatedIndexes]);
+      const relatedItems = [...relatedSet].map((i) => picked[i]);
+
       const domains = new Set(
-        items
+        relatedItems
           .map((x) => String(x?.domain || "").toLowerCase())
           .filter(Boolean)
       );
 
-      const lastSeen = items
+      const lastSeen = relatedItems
         .map((x) => parseGdeltSeenDateUtc(x?.seendate))
         .filter((x): x is Date => !!x)
         .sort((a, b) => b.getTime() - a.getTime())[0];
 
-      const lastSeenUtc = lastSeen || new Date(0);
-      const score = scoreCluster(items.length, domains.size, lastSeenUtc);
+      const lastSeenUtc =
+        lastSeen ||
+        parseGdeltSeenDateUtc(a?.seendate) ||
+        new Date();
+
+      const volumeSignals = {
+        article_count: relatedItems.length,
+        unique_source_count: domains.size,
+        last_seen_utc: lastSeenUtc.toISOString(),
+      };
+
+      const text = `${a?.title || ""} ${a?.excerpt || ""}`;
+      const score = scoreArticle({
+        text,
+        lastSeenUtc,
+        uniqueSourceCount: domains.size,
+        relatedCount: relatedItems.length,
+        isEurope: isEuropeArticle(a),
+      });
 
       return {
-        cid,
-        items,
-        articleCount: items.length,
-        uniqueSourceCount: domains.size,
-        lastSeenUtc,
+        idx,
+        article: a,
+        relatedIndexes,
+        volumeSignals,
         score,
       };
     });
 
-    clusterSummaries.sort((a, b) => b.score - a.score);
-    const top5 = clusterSummaries.slice(0, 5);
+    scored.sort((a, b) => b.score - a.score);
+
+    const chosen: typeof scored = [];
+    const domainCount = new Map<string, number>();
+    for (const s of scored) {
+      const domain = String(s.article?.domain || "").toLowerCase();
+      const used = domain ? domainCount.get(domain) || 0 : 0;
+      if (domain && used >= 1) continue;
+      chosen.push(s);
+      if (domain) domainCount.set(domain, used + 1);
+      if (chosen.length >= 5) break;
+    }
+
+    if (chosen.length < 5) {
+      for (const s of scored) {
+        if (chosen.find((x) => x.idx === s.idx)) continue;
+        chosen.push(s);
+        if (chosen.length >= 5) break;
+      }
+    }
 
     const cards = [];
-    for (let idx = 0; idx < top5.length; idx++) {
-      const c = top5[idx];
-      const sorted = [...c.items].sort((x, y) => {
-        const tx = parseGdeltSeenDateUtc(x?.seendate)?.getTime() || 0;
-        const ty = parseGdeltSeenDateUtc(y?.seendate)?.getTime() || 0;
-        return ty - tx;
-      });
+    for (let rank = 0; rank < chosen.length; rank++) {
+      const c = chosen[rank];
+      const primary = c.article;
+      const related = c.relatedIndexes.map((i) => picked[i]);
 
-      const evidence = pickEvidence(sorted);
-      const evidencePack = buildEvidencePack(sorted.slice(0, 8));
+      const evidence = buildEvidenceForArticle(primary, related);
+      const evidencePack = buildEvidencePack([primary, ...related].slice(0, 8));
 
-      const titles = sorted
-        .slice(0, 6)
+      const titles = [primary, ...related]
         .map((x) => String(x?.title || ""))
-        .filter(Boolean);
-
-      const volumeSignals = {
-        article_count: c.articleCount,
-        unique_source_count: c.uniqueSourceCount,
-        last_seen_utc: c.lastSeenUtc.toISOString(),
-      };
+        .filter(Boolean)
+        .slice(0, 8);
 
       let card = null;
       if (evidencePack.length >= 3) {
         const prompt = buildRuntimeUserPrompt({
           evidencePack,
-          volumeSignals,
+          volumeSignals: c.volumeSignals,
           batchId,
         });
         card = await generateCardWithLLM({ prompt, evidencePack });
@@ -383,17 +411,21 @@ export async function GET(req: NextRequest) {
 
       if (!card) {
         card = buildFallbackCard({
-          titles,
+          primaryTitle: String(primary?.title || ""),
+          primaryExcerpt: primary?.excerpt
+            ? String(primary.excerpt).slice(0, 140)
+            : null,
           evidence,
-          volumeSignals,
+          volumeSignals: c.volumeSignals,
           batchId,
+          titles,
         });
       }
 
       cards.push({
-        rank: idx + 1,
+        rank: rank + 1,
         score: c.score,
-        clusterKey: c.cid,
+        clusterKey: String(primary?._urlCanonical || primary?.url || c.idx),
         cardJsonText: JSON.stringify(card),
       });
     }
@@ -432,11 +464,11 @@ export async function GET(req: NextRequest) {
         fetched: articlesRaw.length,
         deduped: deduped.length,
         europe: europe.length,
-        usedForClustering: picked.length,
+        usedForRanking: picked.length,
       },
       top5: cards.map((c) => safeParseJson(c.cardJsonText, null)).filter(Boolean),
       supplement_links: crypto.items || [],
-      note: "MVP：抓取→去重→聚类→Top5→入库（SQLite TEXT JSON）。",
+      note: "MVP：抓取→去重→相关性匹配→Top5新闻→入库（SQLite TEXT JSON）。",
     });
   } catch (e: any) {
     const msg = String(e?.message || e);

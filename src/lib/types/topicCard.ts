@@ -23,6 +23,8 @@ export const ChainDimensions = [
   "用户风险教育",
 ] as const;
 
+const IMPACT_RANGE_RE = /\d+\s*[-~]\s*\d+%/;
+
 export const TopicCardSchema = z.object({
   title: z.string().min(1).max(14),
   category: Category,
@@ -34,20 +36,28 @@ export const TopicCardSchema = z.object({
     .refine(
       (s) => ChainDimensions.some((k) => s.includes(k)),
       "bd_impact must include chain dimension keyword"
+    )
+    .refine(
+      (s) => IMPACT_RANGE_RE.test(s),
+      "bd_impact must include impact range like 10-30%"
     ),
   entities: z.array(z.string()).max(5),
-  evidence: z.array(z.object({
-    url: z.string().url(),
-    source_name: z.string().min(1),
-    published_time_utc: z.string().datetime()
-  })).length(3),
+  evidence: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        source_name: z.string().min(1),
+        published_time_utc: z.string().datetime(),
+      })
+    )
+    .length(3),
   volume_signals: z.object({
     article_count: z.number().int().nonnegative(),
     unique_source_count: z.number().int().nonnegative(),
-    last_seen_utc: z.string().datetime()
+    last_seen_utc: z.string().datetime(),
   }),
   confidence: Confidence,
-  batch_id: z.string().min(1)
+  batch_id: z.string().min(1),
 });
 
 export type TopicCard = z.infer<typeof TopicCardSchema>;

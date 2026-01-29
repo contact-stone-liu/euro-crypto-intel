@@ -22,7 +22,7 @@ export default function RefreshPanel() {
       const data = (await res.json()) as RefreshResult;
       setLast(data);
       if (data?.ok) {
-        setMsg("刷新成功，几秒后刷新页面即可看到新数据。");
+        setMsg("刷新成功，几秒后刷新页面即可看到最新新闻。");
       } else {
         setMsg(`刷新失败：${data?.error || "unknown error"}`);
       }
@@ -36,10 +36,12 @@ export default function RefreshPanel() {
   return (
     <section className="panel">
       <div className="panel-title">立即刷新</div>
-      <div className="panel-desc">点击按钮后会抓取最新24小时数据并生成5张卡片。</div>
+      <div className="panel-desc">
+        点击按钮后会抓取过去24小时新闻并生成 Top5 新闻卡片。
+      </div>
       <div className="panel-row">
         <button className="panel-btn" onClick={doRefresh} disabled={loading}>
-          {loading ? "刷新中..." : "点击刷新最新数据"}
+          {loading ? "刷新中…" : "点击刷新最新新闻"}
         </button>
       </div>
       {msg ? <div className="panel-msg">{msg}</div> : null}

@@ -22,35 +22,46 @@ type Evidence = {
 export function classifyCategory(text: string): Category {
   const t = text.toLowerCase();
   if (/(mica|aml|regulat|compliance|license|kyc)/.test(t)) return "监管与合规";
-  if (/(lawsuit|court|sec|doj|enforcement|fine|charge)/.test(t)) return "执法与诉讼";
+  if (/(lawsuit|court|sec|doj|enforcement|fine|charge|penalty)/.test(t)) return "执法与诉讼";
   if (/(hack|exploit|breach|vulnerab|phish|drain|attack)/.test(t)) return "安全与黑客";
-  if (/(stablecoin|payment|card|settle|usdc|usdt|on-?ramp|off-?ramp)/.test(t))
+  if (/(stablecoin|payment|card|settle|usdc|usdt|on-?ramp|off-?ramp|sepa|iban)/.test(t))
     return "稳定币与支付通道";
   if (/(etf|blackrock|fidelity|institution|s-?1|spot etf)/.test(t)) return "机构与ETF";
   if (/(tax|bank|banking|custody|wire|sepa|swift)/.test(t)) return "税务与银行";
   if (
-    /(exchange|launch|listing|product|futures|derivative|perpetual|okx|binance|coinbase|kraken|bybit|bitget)/.test(t)
+    /(exchange|listing|launch|delist|product|futures|derivative|perpetual|margin|okx|binance|coinbase|kraken|bybit|bitget)/.test(
+      t
+    )
   )
     return "交易所与产品";
   return "市场与宏观叙事";
 }
 
 function pickBdImpact(cat: Category): string {
-  if (cat === "监管与合规") return "合规审核：监管/牌照信号会影响市场准入与KYC策略。";
-  if (cat === "执法与诉讼") return "用户风险教育：执法与诉讼会影响用户信心与合规沟通口径。";
-  if (cat === "安全与黑客") return "用户风险教育：安全事件需要快速风控提示与资产安全沟通。";
-  if (cat === "稳定币与支付通道") return "入金/出金：支付通道与稳定币流转影响入金体验与转化。";
-  if (cat === "机构与ETF") return "竞争对手叙事：机构动向会改变市场叙事与投放重点。";
-  if (cat === "税务与银行") return "入金/出金：银行/税务政策变化会影响法币通道与合规成本。";
-  if (cat === "交易所与产品") return "衍生品/合约：交易所产品/合约动向影响竞争与用户迁移。";
-  return "获客/广告：宏观叙事变化会影响投放素材与转化路径。";
+  if (cat === "监管与合规")
+    return "合规审核：监管/牌照变化影响市场准入，拉新转化或波动10-25%。";
+  if (cat === "执法与诉讼")
+    return "用户风险教育：执法负面影响信任，拉新转化或下滑10-30%。";
+  if (cat === "安全与黑客")
+    return "用户风险教育：安全事件需风控沟通，入金转化或下滑10-25%。";
+  if (cat === "稳定币与支付通道")
+    return "入金/出金：支付通道变化影响法币入金，转化或波动10-35%。";
+  if (cat === "机构与ETF")
+    return "竞争对手叙事：机构动向改变市场预期，拉新转化或波动5-15%。";
+  if (cat === "税务与银行")
+    return "入金/出金：银行/税务政策影响通道，入金转化或下滑15-40%。";
+  if (cat === "交易所与产品")
+    return "衍生品/合约：交易所产品变动影响交易量，活跃或波动10-40%。";
+  return "获客/广告：宏观情绪变化影响投放效率，拉新转化或波动5-20%。";
 }
 
-function toCnTitle(cat: Category): string {
+function toCnTitle(primaryTitle: string, cat: Category): string {
+  const short = primaryTitle.trim();
+  if (short) return short.slice(0, 14);
   const map: Record<Category, string> = {
-    "监管与合规": "监管合规动向",
+    "监管与合规": "监管合规动态",
     "执法与诉讼": "执法诉讼升级",
-    "交易所与产品": "交易所产品战",
+    "交易所与产品": "交易所产品动态",
     "稳定币与支付通道": "稳定币与支付",
     "机构与ETF": "机构ETF进展",
     "安全与黑客": "安全与黑客事件",
@@ -64,8 +75,8 @@ function confidenceLevel(
   articleCount: number,
   uniqueSourceCount: number
 ): "高" | "中" | "低" {
-  if (articleCount >= 12 && uniqueSourceCount >= 6) return "高";
-  if (articleCount >= 6 && uniqueSourceCount >= 3) return "中";
+  if (articleCount >= 6 && uniqueSourceCount >= 4) return "高";
+  if (articleCount >= 3 && uniqueSourceCount >= 2) return "中";
   return "低";
 }
 
@@ -82,7 +93,8 @@ function extractEntities(titles: string[]): string[] {
 }
 
 export function buildFallbackCard(input: {
-  titles: string[];
+  primaryTitle: string;
+  primaryExcerpt?: string | null;
   evidence: Evidence[];
   volumeSignals: {
     article_count: number;
@@ -90,15 +102,18 @@ export function buildFallbackCard(input: {
     last_seen_utc: string;
   };
   batchId: string;
+  titles: string[];
 }): TopicCard {
-  const cat = classifyCategory(input.titles.join(" "));
+  const text = `${input.primaryTitle} ${input.primaryExcerpt || ""}`.trim();
+  const cat = classifyCategory(text);
+  const tldrBase = input.primaryTitle
+    ? `欧洲媒体报道：${input.primaryTitle}`
+    : "欧洲媒体加密新闻更新";
+  const tldr = `${tldrBase}${input.primaryExcerpt ? `，${input.primaryExcerpt}` : ""}`.slice(0, 90);
   return {
-    title: toCnTitle(cat).slice(0, 14),
+    title: toCnTitle(input.primaryTitle, cat).slice(0, 14),
     category: cat,
-    tldr: `过去24小时该主题报道${input.volumeSignals.article_count}篇，来源${input.volumeSignals.unique_source_count}个，热度集中上升。`.slice(
-      0,
-      90
-    ),
+    tldr,
     bd_impact: pickBdImpact(cat).slice(0, 80),
     entities: extractEntities(input.titles).slice(0, 5),
     evidence: input.evidence.slice(0, 3),
