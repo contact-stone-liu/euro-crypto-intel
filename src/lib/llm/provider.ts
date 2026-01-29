@@ -15,7 +15,7 @@ export async function generateCardWithLLM(input: {
 }): Promise<TopicCard | null> {
   const provider = (process.env.LLM_PROVIDER || "").trim();
   const apiKey = (process.env.LLM_API_KEY || "").trim();
-  const baseUrl = (process.env.LLM_BASE_URL || "https://api.openai.com/v1").trim();
+  let baseUrl = (process.env.LLM_BASE_URL || "https://api.openai.com/v1").trim();
   const model = (process.env.LLM_MODEL || "").trim();
 
   // 没有 key 就返回 null，让上层走降级模板
@@ -30,6 +30,8 @@ export async function generateCardWithLLM(input: {
     ]
   };
 
+  baseUrl = normalizeBaseUrl(baseUrl);
+
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
@@ -39,7 +41,13 @@ export async function generateCardWithLLM(input: {
     body: JSON.stringify(body)
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    console.error(
+      `[llm] failed ${res.status} ${res.statusText}: ${errText.slice(0, 300)}`
+    );
+    return null;
+  }
 
   const json: any = await res.json();
   const text: string = json?.choices?.[0]?.message?.content || "";
@@ -85,4 +93,15 @@ function safeJsonParse(s: string): any | null {
 function hasChinese(s: string | null | undefined) {
   if (!s) return false;
   return /[\u4e00-\u9fff]/.test(s);
+}
+
+function normalizeBaseUrl(raw: string) {
+  const base = raw.replace(/\/$/, "");
+  if (
+    base.startsWith("https://generativelanguage.googleapis.com/v1beta") &&
+    !base.includes("/openai")
+  ) {
+    return `${base}/openai`;
+  }
+  return base;
 }
