@@ -5,6 +5,7 @@ export const RUNTIME_PROMPT = `
 标题必须是 evidence[0].title 的中文翻译（意思一致、尽量保留专有名词/数字/机构名）。
 字段要求（严格）：
 - title: <=30字中文，必须与 evidence[0].title 对应（中文翻译，不能写成“监管动态”等泛化标题）
+- news_brief: <=100字中文，必须讲清楚“发生了什么 + 对 trader 影响 + 对 BD 影响”
 - category: 仅允许 [监管与合规, 执法与诉讼, 交易所与产品, 稳定币与支付通道, 机构与ETF, 安全与黑客, 税务与银行, 市场与宏观叙事]
 - tldr: <=90字中文，说明“发生了什么+为什么重要”，必须点出具体事件/主体
 - bd_impact: <=80字中文，必须显式落到链路维度（从下列选1-2个并解释原因）：
@@ -33,14 +34,20 @@ export function buildRuntimeUserPrompt(input: {
     last_seen_utc: string;
   };
   batchId: string;
+  titleMustInclude?: string[];
 }) {
   const evidenceJson = JSON.stringify(input.evidencePack, null, 2);
   const volumeJson = JSON.stringify(input.volumeSignals, null, 2);
+  const mustInclude =
+    input.titleMustInclude && input.titleMustInclude.length > 0
+      ? `标题需包含以下至少一个关键词（来自主新闻）：${input.titleMustInclude.join(" / ")}`
+      : "";
   return [
     "证据包（只能引用这些 url）：",
     "— evidence[0] 是主线新闻，evidence[1-2] 是佐证来源。",
     evidenceJson,
     "",
+    mustInclude,
     "请基于证据包生成 1 个新闻卡片 JSON，字段必须齐全。",
     `volume_signals: ${volumeJson}`,
     `batch_id: ${input.batchId}`,

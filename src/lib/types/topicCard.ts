@@ -28,6 +28,7 @@ const IMPACT_RANGE_RE = /\d+\s*[-~]\s*\d+%/;
 export const TopicCardSchema = z.object({
   title: z.string().min(1).max(30),
   category: Category,
+  news_brief: z.string().min(1).max(100),
   tldr: z.string().min(1).max(90),
   bd_impact: z
     .string()

@@ -95,11 +95,19 @@ const EURO_TLDS = new Set([
   "de","fr","it","es","nl","be","se","no","dk","fi","ie","pt","pl","cz","sk","hu","ro","bg","gr","at","ch","uk",
 ]);
 
+const EURO_DOMAIN_ALLOWLIST = new Set(
+  (process.env.EURO_DOMAIN_ALLOWLIST || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+);
+
 function isEuropeArticle(a: any): boolean {
   const sc = String(a?.sourceCountry || a?.sourcecountry || "").toUpperCase();
   if (sc && EURO_COUNTRIES.has(sc)) return true;
 
   const domain = String(a?.domain || "").toLowerCase();
+  if (domain && EURO_DOMAIN_ALLOWLIST.has(domain)) return true;
   const tld = domain.split(".").pop() || "";
   if (tld && EURO_TLDS.has(tld)) return true;
 
@@ -164,6 +172,37 @@ function normalizeTitle(raw: string): string {
     .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function dedupeByTitle(items: any[]): any[] {
+  const buckets = new Map<string, any>();
+  for (const a of items) {
+    const key = normalizeTitle(a?.title || "");
+    if (!key) {
+      buckets.set(String(a?._urlCanonical || a?.url || Math.random()), a);
+      continue;
+    }
+    const prev = buckets.get(key);
+    if (!prev) {
+      buckets.set(key, a);
+      continue;
+    }
+    const tPrev = parseGdeltSeenDateUtc(prev?.seendate)?.getTime() || 0;
+    const tCur = parseGdeltSeenDateUtc(a?.seendate)?.getTime() || 0;
+    if (tCur >= tPrev) buckets.set(key, a);
+  }
+  return Array.from(buckets.values());
+}
+
+function extractKeyTokensFromTitle(title: string): string[] {
+  const tokens = new Set<string>();
+  const nums = title.match(/\d+([.,]\d+)?%?/g) || [];
+  nums.forEach((n) => tokens.add(n));
+  const caps = title.match(/\b[A-Z][A-Za-z0-9&\-]{2,}\b/g) || [];
+  caps.forEach((w) => tokens.add(w));
+  const acronyms = title.match(/\b[A-Z]{2,}\b/g) || [];
+  acronyms.forEach((w) => tokens.add(w));
+  return [...tokens].slice(0, 6);
 }
 
 // ---------- main ----------
@@ -240,7 +279,8 @@ export async function GET(req: NextRequest) {
     }
 
     const europe = deduped.filter(isEuropeArticle);
-    const picked = europe.length >= 30 ? europe : deduped;
+    const europeUnique = dedupeByTitle(europe);
+    const picked = europeUnique;
 
     const crypto = await cryptoPromise;
     const supplementLinksText =
@@ -257,7 +297,7 @@ export async function GET(req: NextRequest) {
             status: "success",
             error: null,
             articleCount: deduped.length,
-            europeArticleCount: europe.length,
+            europeArticleCount: europeUnique.length,
             supplementLinksText,
           },
         });
@@ -271,12 +311,12 @@ export async function GET(req: NextRequest) {
         counts: {
           fetched: articlesRaw.length,
           deduped: deduped.length,
-          europe: europe.length,
+          europe: europeUnique.length,
           usedForRanking: 0,
         },
         top5: [],
         supplement_links: crypto.items || [],
-        note: "本次窗口没有抓到文章：已记录成功 batch，但未生成卡片。",
+        note: "本次窗口欧洲本地媒体不足：已记录成功 batch，但未生成卡片。",
       });
     }
 
@@ -443,6 +483,9 @@ export async function GET(req: NextRequest) {
           evidencePack,
           volumeSignals: c.volumeSignals,
           batchId,
+          titleMustInclude: extractKeyTokensFromTitle(
+            String(primary?.title || "")
+          ),
         });
         card = await generateCardWithLLM({ prompt, evidencePack });
       }
@@ -487,7 +530,7 @@ export async function GET(req: NextRequest) {
           status: "success",
           error: null,
           articleCount: deduped.length,
-          europeArticleCount: europe.length,
+          europeArticleCount: europeUnique.length,
           supplementLinksText,
         },
       });
@@ -501,7 +544,7 @@ export async function GET(req: NextRequest) {
       counts: {
         fetched: articlesRaw.length,
         deduped: deduped.length,
-        europe: europe.length,
+        europe: europeUnique.length,
         usedForRanking: picked.length,
       },
       top5: cards.map((c) => safeParseJson(c.cardJsonText, null)).filter(Boolean),

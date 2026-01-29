@@ -133,6 +133,10 @@ export default async function Page() {
               <span>{c.tldr}</span>
             </div>
             <div className="card-row">
+              <span className="card-label">新闻简述</span>
+              <span>{c.news_brief || c.tldr}</span>
+            </div>
+            <div className="card-row">
               <span className="card-label">BD影响</span>
               <span>{c.bd_impact}</span>
             </div>

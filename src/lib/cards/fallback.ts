@@ -112,6 +112,15 @@ export function buildFallbackCard(input: {
   const text = `${input.primaryTitle} ${input.primaryExcerpt || ""}`.trim();
   const cat = classifyCategory(text);
   const titleCn = toCnTitle(input.primaryTitle, cat);
+
+  let newsBrief = "";
+  if (hasChinese(input.primaryTitle)) {
+    newsBrief = `发生事件：${input.primaryTitle}。对 trader 影响：短期波动或风险预期上升。对 BD 影响：需调整拉新/入金沟通。`;
+  } else {
+    newsBrief = `发生事件：${titleCn}。对 trader 影响：短期波动或风险预期上升。对 BD 影响：需调整拉新/入金沟通。`;
+  }
+  newsBrief = newsBrief.slice(0, 100);
+
   let tldr = "";
   if (hasChinese(input.primaryTitle)) {
     const excerptCn = hasChinese(input.primaryExcerpt || "")
@@ -122,9 +131,11 @@ export function buildFallbackCard(input: {
     tldr = `欧洲媒体报道：${titleCn}，对交易所/KOL/BD 决策构成影响。`;
   }
   tldr = tldr.slice(0, 90);
+
   return {
     title: titleCn.slice(0, 30),
     category: cat,
+    news_brief: newsBrief,
     tldr,
     bd_impact: pickBdImpact(cat).slice(0, 80),
     entities: extractEntities(input.titles).slice(0, 5),
