@@ -56,34 +56,13 @@ export async function generateCardWithLLM(input: {
   const evidenceOk = z.data.evidence.every(e => allowed.has(e.url));
   if (!evidenceOk) return null;
 
-  // 强制中文输出：标题/摘要/影响必须含中文
+  // 强制中文输出：标题/简述/影响必须含中文
   if (
     !hasChinese(z.data.title) ||
-    !hasChinese(z.data.tldr) ||
-    !hasChinese(z.data.bd_impact) ||
-    !hasChinese(z.data.news_brief)
+    !hasChinese(z.data.news_brief) ||
+    !hasChinese(z.data.bd_impact)
   ) {
     return null;
-  }
-
-  // 新闻简述需明确提到 trader 与 BD 影响
-  const brief = z.data.news_brief || "";
-  const hasTrader = /trader|交易员|交易者/i.test(brief);
-  const hasBd = /BD|业务拓展|商务/i.test(brief);
-  if (!hasTrader || !hasBd) return null;
-
-  // 要求标题更具体：不能是泛化词
-  const genericTitle =
-    /动态|趋势|综述|概览|解读|观察|盘点|关注|焦点|进展|动向/;
-  if (genericTitle.test(z.data.title)) return null;
-
-  // 标题需包含主新闻中的关键实体/数字（至少命中一个）
-  const primaryTitle = input.evidencePack?.[0]?.title || "";
-  const keyTokens = extractKeyTokens(primaryTitle);
-  if (keyTokens.length > 0) {
-    const titleLower = z.data.title.toLowerCase();
-    const hit = keyTokens.some((t) => titleLower.includes(t.toLowerCase()));
-    if (!hit) return null;
   }
 
   return z.data;
@@ -106,15 +85,4 @@ function safeJsonParse(s: string): any | null {
 function hasChinese(s: string | null | undefined) {
   if (!s) return false;
   return /[\u4e00-\u9fff]/.test(s);
-}
-
-function extractKeyTokens(title: string): string[] {
-  const tokens = new Set<string>();
-  const nums = title.match(/\d+([.,]\d+)?%?/g) || [];
-  nums.forEach((n) => tokens.add(n));
-
-  const acronyms = title.match(/\b[A-Z]{2,}\b/g) || [];
-  acronyms.forEach((w) => tokens.add(w));
-
-  return [...tokens].slice(0, 8);
 }
