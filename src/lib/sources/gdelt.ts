@@ -1,4 +1,6 @@
 const TIMEOUT_MS = 25_000;
+const RETRY_DELAY_MS = Number(process.env.GDELT_RETRY_DELAY_MS || "5500");
+const RETRY_COUNT = Number(process.env.GDELT_RETRY_COUNT || "1");
 
 export type GdeltArticle = {
   url: string;
@@ -53,7 +55,11 @@ export function normalizeGdeltQuery(raw: string): string {
   return trimmed;
 }
 
-async function fetchJsonWithTimeout(url: string) {
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithTimeout(url: string, retries = RETRY_COUNT) {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), TIMEOUT_MS);
 
@@ -66,6 +72,11 @@ async function fetchJsonWithTimeout(url: string) {
 
     const ct = res.headers.get("content-type") || "";
     const text = await res.text();
+
+    if (res.status === 429 && retries > 0) {
+      await sleep(RETRY_DELAY_MS);
+      return fetchJsonWithTimeout(url, retries - 1);
+    }
 
     if (!res.ok) {
       throw new Error(

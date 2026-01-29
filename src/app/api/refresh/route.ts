@@ -480,7 +480,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (e: any) {
     const msg = String(e?.message || e);
-    const msgShort = msg.length > 4000 ? `${msg.slice(0, 4000)}…` : msg;
+    let msgShort = msg.length > 4000 ? `${msg.slice(0, 4000)}…` : msg;
+    if (/GDELT HTTP 429/i.test(msgShort)) {
+      msgShort = "GDELT 限流：请等待约 5-10 秒后再刷新。";
+    }
 
     if (batchCreated) {
       try {
