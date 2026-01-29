@@ -52,6 +52,32 @@ function isAuthorized(req: NextRequest) {
   return provided === expected;
 }
 
+const PUBLIC_REFRESH = (process.env.PUBLIC_REFRESH || "").trim() === "1";
+const PUBLIC_REFRESH_COOLDOWN_MINUTES = Number(
+  process.env.PUBLIC_REFRESH_COOLDOWN_MINUTES || "30"
+);
+
+async function canPublicRefresh() {
+  if (!PUBLIC_REFRESH) return { ok: false, reason: "Public refresh disabled." };
+  const latest = await prisma.batch.findFirst({
+    orderBy: { createdAtUtc: "desc" },
+  });
+  if (!latest) return { ok: true };
+  if (latest.status === "running") {
+    return { ok: false, reason: "Refresh already running. Please wait." };
+  }
+  const diffMs = Date.now() - latest.createdAtUtc.getTime();
+  const minMs = PUBLIC_REFRESH_COOLDOWN_MINUTES * 60 * 1000;
+  if (diffMs < minMs) {
+    const waitSec = Math.ceil((minMs - diffMs) / 1000);
+    return {
+      ok: false,
+      reason: `Please wait ${waitSec}s before refreshing again.`,
+    };
+  }
+  return { ok: true };
+}
+
 // ---------- europe filter ----------
 const EURO_COUNTRIES = new Set([
   "AL","AD","AT","BE","BG","BA","BY","CH","CY","CZ","DE","DK","EE","ES","FI","FR","GB","GR","HR","HU","IE","IS","IT",
@@ -140,10 +166,13 @@ export async function GET(req: NextRequest) {
     `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   if (!isAuthorized(req)) {
-    return NextResponse.json(
-      { ok: false, error: "Unauthorized (missing/invalid secret)", batchId },
-      { status: 401 }
-    );
+    const pub = await canPublicRefresh();
+    if (!pub.ok) {
+      return NextResponse.json(
+        { ok: false, error: pub.reason, batchId },
+        { status: 429 }
+      );
+    }
   }
 
   const end = new Date();

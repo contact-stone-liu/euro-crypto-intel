@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db/client";
 import type { TopicCard } from "@/lib/types/topicCard";
+import RefreshPanel from "@/app/components/RefreshPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -65,83 +66,86 @@ export default async function Page() {
   const supplementNote = supplement?.note || null;
 
   return (
-    <main style={{ maxWidth: 980, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-        欧洲媒体视角：日更加密情报看板（Top5）
-      </h1>
-
-      <div style={{ fontSize: 14, color: "#444", marginBottom: 16 }}>
-        <div>最近一次触发（UTC）：{statusTime ?? "暂无"}</div>
-        {statusRunning && statusTime ? (
-          <div style={{ marginTop: 6, color: "#2563eb" }}>
-            最近一次刷新进行中，请稍后再看。
+    <main className="page">
+      <header className="hero">
+        <div className="hero-title">欧洲媒体视角：日更加密情报看板</div>
+        <div className="hero-sub">Top5 话题簇 · 过去24小时滚动窗口 · 中文输出</div>
+        <div className="hero-stats">
+          <div>
+            <div className="stat-label">最近一次触发（UTC）</div>
+            <div className="stat-value">{statusTime ?? "暂无"}</div>
           </div>
+          <div>
+            <div className="stat-label">当前展示批次（UTC）</div>
+            <div className="stat-value">{showTime ?? "暂无"}</div>
+          </div>
+          <div>
+            <div className="stat-label">状态</div>
+            <div className="stat-value">
+              {statusRunning ? "刷新中" : statusFailed ? "失败" : "正常"}
+            </div>
+          </div>
+        </div>
+        {statusRunning && statusTime ? (
+          <div className="hero-tip info">最近一次刷新进行中，请稍后再看。</div>
         ) : null}
-
         {statusFailed && statusTime ? (
-          <div style={{ marginTop: 6, color: "#b42318" }}>
+          <div className="hero-tip error">
             最近一次刷新失败，展示上次成功结果。
             {statusErrorDisplay ? (
               <span suppressHydrationWarning>{`错误：${statusErrorDisplay}`}</span>
             ) : null}
           </div>
         ) : null}
-
-        <div style={{ marginTop: 6 }}>当前展示数据批次（UTC）：{showTime ?? "暂无"}</div>
-
         {!showTime ? (
-          <div style={{ marginTop: 6 }}>
+          <div className="hero-tip warn">
             还没有成功数据。请先访问：<a href="/api/refresh">/api/refresh</a>（本地请加
             <code>?secret=你的secret</code>）触发一次刷新。
           </div>
         ) : null}
-      </div>
+      </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+      <RefreshPanel />
+
+      <div className="card-grid">
         {cards.slice(0, 5).map((c, idx) => (
-          <section
-            key={idx}
-            style={{
-              background: "white",
-              border: "1px solid #e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>
-                {idx + 1}. {c.title}
+          <section key={idx} className="card">
+            <div className="card-head">
+              <div className="card-title">
+                <span className="card-rank">{idx + 1}</span>
+                {c.title}
               </div>
-              <div style={{ fontSize: 12, color: "#555" }}>{c.category}</div>
+              <div className="card-cat">{c.category}</div>
             </div>
 
-            <div style={{ marginTop: 8, fontSize: 14 }}>
-              <b>TL;DR：</b>{c.tldr}
+            <div className="card-row">
+              <span className="card-label">TL;DR</span>
+              <span>{c.tldr}</span>
+            </div>
+            <div className="card-row">
+              <span className="card-label">BD影响</span>
+              <span>{c.bd_impact}</span>
+            </div>
+            <div className="card-row">
+              <span className="card-label">关键实体</span>
+              <span>{(c.entities || []).join("、") || "—"}</span>
             </div>
 
-            <div style={{ marginTop: 8, fontSize: 14 }}>
-              <b>BD影响：</b>{c.bd_impact}
-            </div>
-
-            <div style={{ marginTop: 8, fontSize: 13 }}>
-              <b>关键实体：</b>{(c.entities || []).join("、") || "—"}
-            </div>
-
-            <div style={{ marginTop: 8, fontSize: 13 }}>
-              <b>证据链接：</b>
-              <ol style={{ marginTop: 6, paddingLeft: 18 }}>
+            <div className="card-row">
+              <span className="card-label">证据链接</span>
+              <ol className="card-evidence">
                 {(c.evidence || []).slice(0, 3).map((e, i) => (
-                  <li key={i} style={{ marginBottom: 4 }}>
+                  <li key={i}>
                     <a href={e.url} target="_blank" rel="noreferrer">
                       {e.source_name}
-                    </a>{" "}
-                    <span style={{ color: "#666" }}>（{e.published_time_utc} UTC）</span>
+                    </a>
+                    <span className="card-time">（{e.published_time_utc} UTC）</span>
                   </li>
                 ))}
               </ol>
             </div>
 
-            <div style={{ marginTop: 8, fontSize: 12, color: "#555" }}>
+            <div className="card-foot">
               热度：{c.volume_signals?.article_count ?? 0} 篇 / {c.volume_signals?.unique_source_count ?? 0} 来源；
               最后出现：{c.volume_signals?.last_seen_utc ?? "—"}；置信度：{c.confidence}
             </div>
@@ -149,39 +153,25 @@ export default async function Page() {
         ))}
       </div>
 
-      <section
-        style={{
-          marginTop: 18,
-          background: "white",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: 14,
-        }}
-      >
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
-          补源链接（CryptoPanic）
-        </div>
+      <section className="panel">
+        <div className="panel-title">补源链接（CryptoPanic）</div>
         {supplementItems.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#666" }}>
-            暂无补源链接（可能未配置 CRYPTOPANIC_TOKEN）。
-          </div>
+          <div className="panel-desc">暂无补源链接（可能未配置 CRYPTOPANIC_TOKEN）。</div>
         ) : (
-          <ol style={{ marginTop: 6, paddingLeft: 18 }}>
+          <ol className="panel-list">
             {supplementItems.slice(0, 10).map((e: any, i: number) => (
-              <li key={i} style={{ marginBottom: 4 }}>
+              <li key={i}>
                 <a href={e.url} target="_blank" rel="noreferrer">
                   {e.source_name || e.title || "source"}
-                </a>{" "}
-                <span style={{ color: "#666" }}>
+                </a>
+                <span className="card-time">
                   {e.published_time_utc ? `（${e.published_time_utc} UTC）` : ""}
                 </span>
               </li>
             ))}
           </ol>
         )}
-        {supplementNote ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>{supplementNote}</div>
-        ) : null}
+        {supplementNote ? <div className="panel-meta">{supplementNote}</div> : null}
       </section>
     </main>
   );
