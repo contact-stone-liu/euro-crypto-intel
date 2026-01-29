@@ -52,8 +52,11 @@ function isAuthorized(req: NextRequest) {
 }
 
 const PUBLIC_REFRESH = (process.env.PUBLIC_REFRESH || "").trim() === "1";
+const PUBLIC_REFRESH_COOLDOWN_SECONDS = Number(
+  process.env.PUBLIC_REFRESH_COOLDOWN_SECONDS || "5"
+);
 const PUBLIC_REFRESH_COOLDOWN_MINUTES = Number(
-  process.env.PUBLIC_REFRESH_COOLDOWN_MINUTES || "30"
+  process.env.PUBLIC_REFRESH_COOLDOWN_MINUTES || "0"
 );
 
 async function canPublicRefresh() {
@@ -66,7 +69,12 @@ async function canPublicRefresh() {
     return { ok: false, reason: "Refresh already running. Please wait." };
   }
   const diffMs = Date.now() - latest.createdAtUtc.getTime();
-  const minMs = PUBLIC_REFRESH_COOLDOWN_MINUTES * 60 * 1000;
+  const cooldownSeconds =
+    Number.isFinite(PUBLIC_REFRESH_COOLDOWN_SECONDS) &&
+    PUBLIC_REFRESH_COOLDOWN_SECONDS > 0
+      ? PUBLIC_REFRESH_COOLDOWN_SECONDS
+      : Math.max(0, PUBLIC_REFRESH_COOLDOWN_MINUTES) * 60;
+  const minMs = cooldownSeconds * 1000;
   if (diffMs < minMs) {
     const waitSec = Math.ceil((minMs - diffMs) / 1000);
     return {

@@ -26,7 +26,7 @@ export const ChainDimensions = [
 const IMPACT_RANGE_RE = /\d+\s*[-~]\s*\d+%/;
 
 export const TopicCardSchema = z.object({
-  title: z.string().min(1).max(14),
+  title: z.string().min(1).max(30),
   category: Category,
   tldr: z.string().min(1).max(90),
   bd_impact: z

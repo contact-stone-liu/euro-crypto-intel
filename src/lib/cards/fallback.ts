@@ -57,7 +57,7 @@ function pickBdImpact(cat: Category): string {
 
 function toCnTitle(primaryTitle: string, cat: Category): string {
   const short = primaryTitle.trim();
-  if (short) return short.slice(0, 14);
+  if (short && hasChinese(short)) return short.slice(0, 30);
   const map: Record<Category, string> = {
     "监管与合规": "监管合规动态",
     "执法与诉讼": "执法诉讼升级",
@@ -68,7 +68,7 @@ function toCnTitle(primaryTitle: string, cat: Category): string {
     "税务与银行": "税务银行收紧",
     "市场与宏观叙事": "市场宏观叙事",
   };
-  return map[cat].slice(0, 14);
+  return map[cat].slice(0, 30);
 }
 
 function confidenceLevel(
@@ -92,6 +92,11 @@ function extractEntities(titles: string[]): string[] {
     .slice(0, 5);
 }
 
+function hasChinese(s: string | null | undefined) {
+  if (!s) return false;
+  return /[\u4e00-\u9fff]/.test(s);
+}
+
 export function buildFallbackCard(input: {
   primaryTitle: string;
   primaryExcerpt?: string | null;
@@ -106,12 +111,19 @@ export function buildFallbackCard(input: {
 }): TopicCard {
   const text = `${input.primaryTitle} ${input.primaryExcerpt || ""}`.trim();
   const cat = classifyCategory(text);
-  const tldrBase = input.primaryTitle
-    ? `欧洲媒体报道：${input.primaryTitle}`
-    : "欧洲媒体加密新闻更新";
-  const tldr = `${tldrBase}${input.primaryExcerpt ? `，${input.primaryExcerpt}` : ""}`.slice(0, 90);
+  const titleCn = toCnTitle(input.primaryTitle, cat);
+  let tldr = "";
+  if (hasChinese(input.primaryTitle)) {
+    const excerptCn = hasChinese(input.primaryExcerpt || "")
+      ? `，${String(input.primaryExcerpt).trim()}`
+      : "";
+    tldr = `欧洲媒体报道：${input.primaryTitle}${excerptCn}`;
+  } else {
+    tldr = `欧洲媒体报道：${titleCn}，对交易所/KOL/BD 决策构成影响。`;
+  }
+  tldr = tldr.slice(0, 90);
   return {
-    title: toCnTitle(input.primaryTitle, cat).slice(0, 14),
+    title: titleCn.slice(0, 30),
     category: cat,
     tldr,
     bd_impact: pickBdImpact(cat).slice(0, 80),
