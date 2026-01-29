@@ -61,6 +61,11 @@ export async function generateCardWithLLM(input: {
     return null;
   }
 
+  // 要求标题更具体：不能是泛化词
+  const genericTitle =
+    /动态|趋势|综述|概览|解读|观察|盘点|关注|焦点|进展|动向/;
+  if (genericTitle.test(z.data.title)) return null;
+
   return z.data;
 }
 

@@ -157,6 +157,15 @@ function buildEvidenceForArticle(primary: any, related: any[]): EvidenceItem[] {
   return evidence.slice(0, 3);
 }
 
+function normalizeTitle(raw: string): string {
+  return String(raw || "")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ---------- main ----------
 export async function GET(req: NextRequest) {
   const batchId =
@@ -376,19 +385,40 @@ export async function GET(req: NextRequest) {
 
     const chosen: typeof scored = [];
     const domainCount = new Map<string, number>();
+    const titleKeys = new Set<string>();
+
+    const isTooSimilar = (candidateIdx: number) => {
+      for (const pickedItem of chosen) {
+        const sims = similarity[candidateIdx] || [];
+        const hit = sims.find((x) => x.index === pickedItem.idx);
+        if (hit && hit.score >= 0.78) return true;
+      }
+      return false;
+    };
+
     for (const s of scored) {
       const domain = String(s.article?.domain || "").toLowerCase();
       const used = domain ? domainCount.get(domain) || 0 : 0;
       if (domain && used >= 1) continue;
+
+      const titleKey = normalizeTitle(s.article?.title || "");
+      if (titleKey && titleKeys.has(titleKey)) continue;
+      if (isTooSimilar(s.idx)) continue;
+
       chosen.push(s);
       if (domain) domainCount.set(domain, used + 1);
+      if (titleKey) titleKeys.add(titleKey);
       if (chosen.length >= 5) break;
     }
 
     if (chosen.length < 5) {
       for (const s of scored) {
         if (chosen.find((x) => x.idx === s.idx)) continue;
+        const titleKey = normalizeTitle(s.article?.title || "");
+        if (titleKey && titleKeys.has(titleKey)) continue;
+        if (isTooSimilar(s.idx)) continue;
         chosen.push(s);
+        if (titleKey) titleKeys.add(titleKey);
         if (chosen.length >= 5) break;
       }
     }
