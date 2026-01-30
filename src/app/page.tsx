@@ -51,13 +51,6 @@ export default async function Page() {
     ? `${statusError.slice(0, 300)}${statusError.length > 300 ? "…" : ""}`
     : null;
 
-  const llmLabel = latestOk?.llmModel
-    ? `${latestOk.llmProvider || "llm"} / ${latestOk.llmModel}`
-    : "未配置";
-  const llmUsed =
-    typeof latestOk?.llmUsedCount === "number"
-      ? `${latestOk.llmUsedCount}/${latestOk?.llmAttemptCount ?? 0}`
-      : "—";
   let cards: TopicCard[] = [];
   if (latestOk?.cards?.length) {
     cards = latestOk.cards
@@ -95,9 +88,7 @@ export default async function Page() {
           </div>
           <div>
             <div className="stat-label">LLM</div>
-            <div className="stat-value">{llmLabel}</div>
-            <div className="stat-label">LLM 生成</div>
-            <div className="stat-value">{llmUsed}</div>
+            <div className="stat-value">未配置</div>
           </div>
         </div>
         {statusRunning && statusTime ? (

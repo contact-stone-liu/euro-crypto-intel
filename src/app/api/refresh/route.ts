@@ -137,9 +137,6 @@ const PUBLIC_REFRESH_COOLDOWN_SECONDS = Number(
 const PUBLIC_REFRESH_COOLDOWN_MINUTES = Number(
   process.env.PUBLIC_REFRESH_COOLDOWN_MINUTES || "0"
 );
-const LLM_PROVIDER = (process.env.LLM_PROVIDER || "").trim();
-const LLM_MODEL = (process.env.LLM_MODEL || "").trim();
-const LLM_BASE_URL = (process.env.LLM_BASE_URL || "").trim();
 
 async function canPublicRefresh() {
   if (!PUBLIC_REFRESH) return { ok: false, reason: "Public refresh disabled." };
@@ -340,11 +337,6 @@ export async function GET(req: NextRequest) {
         articleCount: 0,
         europeArticleCount: 0,
         supplementLinksText: null,
-        llmProvider: LLM_PROVIDER || null,
-        llmModel: LLM_MODEL || null,
-        llmBaseUrl: LLM_BASE_URL || null,
-        llmAttemptCount: 0,
-        llmUsedCount: 0,
       },
     });
     batchCreated = true;
@@ -574,8 +566,6 @@ export async function GET(req: NextRequest) {
     }
 
     const cards = [];
-    let llmAttemptCount = 0;
-    let llmUsedCount = 0;
     for (let rank = 0; rank < chosen.length; rank++) {
       const c = chosen[rank];
       const primary = c.article;
@@ -602,14 +592,12 @@ export async function GET(req: NextRequest) {
 
       let card = null;
       if (fetchResult.status === "ok" && evidencePack.length >= 1) {
-        llmAttemptCount += 1;
         const prompt = buildRuntimeUserPrompt({
           evidencePack,
           volumeSignals: c.volumeSignals,
           batchId,
         });
         card = await generateCardWithLLM({ prompt, evidencePack });
-        if (card) llmUsedCount += 1;
       }
 
       if (!card) {
@@ -721,8 +709,6 @@ export async function GET(req: NextRequest) {
           articleCount: deduped.length,
           europeArticleCount: europeUnique.length,
           supplementLinksText,
-          llmAttemptCount,
-          llmUsedCount,
         },
       });
     }
