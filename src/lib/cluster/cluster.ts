@@ -1,4 +1,4 @@
-import { buildTfIdf, cosine } from "@/lib/cluster/tfidf";
+﻿import { buildTfIdf, cosine } from "@/lib/cluster/tfidf";
 
 export type ClusterItem = {
   id: string;
@@ -19,7 +19,7 @@ export function clusterByCosineThreshold(docs: { id: string; text: string }[], t
   const byId = new Map(items.map(x => [x.id, x]));
   const clusters: Cluster[] = [];
 
-  // 贪心聚类：拿一个种子，把相似度>=阈值的都拉进来
+  // 璐績鑱氱被锛氭嬁涓€涓瀛愶紝鎶婄浉浼煎害>=闃堝€肩殑閮芥媺杩涙潵
   while (unassigned.size > 0) {
     const seedId = unassigned.values().next().value as string;
     unassigned.delete(seedId);
@@ -39,3 +39,4 @@ export function clusterByCosineThreshold(docs: { id: string; text: string }[], t
 
   return clusters;
 }
+

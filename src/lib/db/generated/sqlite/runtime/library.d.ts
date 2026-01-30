@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @param this
  */
 declare function $extends(this: Client, extension: ExtensionArgs | ((client: Client) => Client)): Client;
@@ -2188,7 +2188,7 @@ declare class NodeHeaders {
 }
 
 /**
- * @deprecated Please don´t rely on type checks to this error anymore.
+ * @deprecated Please don麓t rely on type checks to this error anymore.
  * This will become a regular `PrismaClientKnownRequestError` with code `P2025`
  * in the future major version of the client.
  * Instead of `error instanceof Prisma.NotFoundError` use `error.code === "P2025"`.
@@ -3401,3 +3401,4 @@ declare type WasmLoadingConfig = {
 };
 
 export { }
+

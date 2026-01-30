@@ -1,4 +1,4 @@
-const TIMEOUT_MS = 25_000;
+﻿const TIMEOUT_MS = 25_000;
 const RETRY_DELAY_MS = Number(process.env.GDELT_RETRY_DELAY_MS || "5500");
 const RETRY_COUNT = Number(process.env.GDELT_RETRY_COUNT || "1");
 
@@ -97,6 +97,13 @@ async function fetchJsonWithTimeout(url: string, retries = RETRY_COUNT) {
         )} | url=${url}`
       );
     }
+  } catch (e: any) {
+    if (retries > 0) {
+      await sleep(RETRY_DELAY_MS);
+      return fetchJsonWithTimeout(url, retries - 1);
+    }
+    const msg = String(e?.message || e);
+    throw new Error(`GDELT fetch failed: ${msg} | url=${url}`);
   } finally {
     clearTimeout(t);
   }
@@ -134,3 +141,4 @@ export async function fetchGdeltArticles(opts: {
 
   return { gdeltUrl, rawQuery: raw, articles, startdatetime, enddatetime };
 }
+

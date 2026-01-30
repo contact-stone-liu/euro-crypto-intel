@@ -1,4 +1,4 @@
-export function recencyWeight(lastSeenUtc: Date) {
+﻿export function recencyWeight(lastSeenUtc: Date) {
   const hours = (Date.now() - lastSeenUtc.getTime()) / 36e5;
   return 1 / (1 + Math.max(0, hours));
 }
@@ -46,3 +46,4 @@ export function scoreArticle(input: ArticleScoreInput) {
 
   return score;
 }
+

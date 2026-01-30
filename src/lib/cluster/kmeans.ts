@@ -1,4 +1,4 @@
-function mulberry32(seed: number) {
+﻿function mulberry32(seed: number) {
   return function () {
     let t = (seed += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -82,3 +82,4 @@ export function kmeans(
 
   return { labels, centroids };
 }
+

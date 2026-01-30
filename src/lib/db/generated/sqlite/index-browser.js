@@ -1,4 +1,4 @@
-
+﻿
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const {
@@ -205,3 +205,4 @@ If this is unexpected, please open an issue: https://pris.ly/prisma-prisma-bug-r
 exports.PrismaClient = PrismaClient
 
 Object.assign(exports, Prisma)
+

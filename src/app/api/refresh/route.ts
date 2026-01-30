@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { buildTfIdf, cosine } from "@/lib/cluster/tfidf";
 import { scoreArticle } from "@/lib/scoring";
@@ -88,7 +88,7 @@ async function fetchArticleText(url: string): Promise<{
 
 function extractEvidencePoints(text: string, max = 3): string[] {
   const parts = text
-    .split(/[。！？.!?]\s+/)
+    .split(/[。！？?!?]\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 8);
   const picked: string[] = [];
@@ -110,8 +110,10 @@ function safeParseJson<T>(s: string, fallback: T): T {
 
 function isAuthorized(req: NextRequest) {
   if (req.headers.get("x-vercel-cron") === "1") return true;
-  const expected = process.env.REFRESH_SECRET || process.env.CRON_SECRET || "";
-  if (!expected) return false;
+  const expected = [process.env.REFRESH_SECRET, process.env.CRON_SECRET]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  if (expected.length === 0) return false;
 
   const url = new URL(req.url);
   const qSecret = url.searchParams.get("secret") || "";
@@ -127,7 +129,7 @@ function isAuthorized(req: NextRequest) {
     : "";
 
   const provided = qSecret || headerSecret || bearer;
-  return provided === expected;
+  return expected.includes(provided);
 }
 
 const PUBLIC_REFRESH = (process.env.PUBLIC_REFRESH || "").trim() === "1";
@@ -137,6 +139,21 @@ const PUBLIC_REFRESH_COOLDOWN_SECONDS = Number(
 const PUBLIC_REFRESH_COOLDOWN_MINUTES = Number(
   process.env.PUBLIC_REFRESH_COOLDOWN_MINUTES || "0"
 );
+
+const SIM_RELATED_THRESHOLD = Number(
+  process.env.SIM_RELATED_THRESHOLD || "0.15"
+);
+const SIM_DUPLICATE_THRESHOLD = Number(
+  process.env.SIM_DUPLICATE_THRESHOLD || "0.78"
+);
+
+function clamp01(value: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(1, value));
+}
+
+const RELATED_THRESHOLD = clamp01(SIM_RELATED_THRESHOLD, 0.15);
+const DUPLICATE_THRESHOLD = clamp01(SIM_DUPLICATE_THRESHOLD, 0.78);
 
 async function canPublicRefresh() {
   if (!PUBLIC_REFRESH) return { ok: false, reason: "Public refresh disabled." };
@@ -166,12 +183,12 @@ async function canPublicRefresh() {
 
 // ---------- europe filter ----------
 const EURO_COUNTRIES = new Set([
-  "AL","AD","AT","BE","BG","BA","BY","CH","CY","CZ","DE","DK","EE","ES","FI","FR","GB","GR","HR","HU","IE","IS","IT",
-  "LI","LT","LU","LV","MC","MD","ME","MK","MT","NL","NO","PL","PT","RO","RS","SE","SI","SK","SM","UA","VA",
+  "AL", "AD", "AT", "BE", "BG", "BA", "BY", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE", "IS", "IT",
+  "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK", "MT", "NL", "NO", "PL", "PT", "RO", "RS", "SE", "SI", "SK", "SM", "UA", "VA",
 ]);
 
 const EURO_TLDS = new Set([
-  "de","fr","it","es","nl","be","se","no","dk","fi","ie","pt","pl","cz","sk","hu","ro","bg","gr","at","ch","uk",
+  "de", "fr", "it", "es", "nl", "be", "se", "no", "dk", "fi", "ie", "pt", "pl", "cz", "sk", "hu", "ro", "bg", "gr", "at", "ch", "uk",
 ]);
 
 const EURO_DOMAIN_ALLOWLIST = new Set(
@@ -296,6 +313,33 @@ function extractKeyTokensFromTitle(title: string): string[] {
   const acronyms = title.match(/\b[A-Z]{2,}\b/g) || [];
   acronyms.forEach((w) => tokens.add(w));
   return [...tokens].slice(0, 6);
+}
+
+function inferImpactAxis(text: string): "注册" | "入金" | "交易" {
+  const t = text.toLowerCase();
+  const score = {
+    注册: /(mica|esma|eba|fca|bafin|amf|kyc|aml|license|compliance|regulat|policy|law|ban|restriction|approval|enforcement)/.test(
+      t
+    )
+      ? 1
+      : 0,
+    入金: /(deposit|withdraw|on-?ramp|off-?ramp|sepa|iban|swift|bank|card|fiat|payment|stablecoin|usdt|usdc|e-?money)/.test(
+      t
+    )
+      ? 1
+      : 0,
+    交易: /(exchange|listing|delist|pair|spot|margin|leverage|derivative|perpetual|futures|orderbook|trading|market)/.test(
+      t
+    )
+      ? 1
+      : 0,
+  } as const;
+
+  const entries = Object.entries(score) as Array<
+    ["注册" | "入金" | "交易", number]
+  >;
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries[0]?.[1] ? entries[0][0] : "入金";
 }
 
 // ---------- main ----------
@@ -471,7 +515,7 @@ export async function GET(req: NextRequest) {
 
     const scored = picked.map((a, idx) => {
       const relatedIndexes = similarity[idx]
-        .filter((x) => x.score >= 0.2)
+        .filter((x) => x.score >= RELATED_THRESHOLD)
         .slice(0, 8)
         .map((x) => x.index);
 
@@ -509,6 +553,8 @@ export async function GET(req: NextRequest) {
         isEurope: isEuropeArticle(a),
       });
 
+      const axisHint = inferImpactAxis(text);
+
       return {
         idx,
         article: a,
@@ -516,6 +562,7 @@ export async function GET(req: NextRequest) {
         volumeSignals,
         score,
         isEuropeSource: isEuropeArticle(a),
+        axisHint,
       };
     });
 
@@ -524,12 +571,17 @@ export async function GET(req: NextRequest) {
     const chosen: typeof scored = [];
     const domainCount = new Map<string, number>();
     const titleKeys = new Set<string>();
+    const axisCounts = new Map<string, number>();
+    const axisOrder: Array<"注册" | "入金" | "交易"> = ["注册", "入金", "交易"];
+    const maxPerAxis = 2;
+    const needsAxis = () =>
+      axisOrder.filter((a) => (axisCounts.get(a) || 0) === 0);
 
     const isTooSimilar = (candidateIdx: number) => {
       for (const pickedItem of chosen) {
         const sims = similarity[candidateIdx] || [];
         const hit = sims.find((x) => x.index === pickedItem.idx);
-        if (hit && hit.score >= 0.78) return true;
+        if (hit && hit.score >= DUPLICATE_THRESHOLD) return true;
       }
       return false;
     };
@@ -543,11 +595,17 @@ export async function GET(req: NextRequest) {
       if (titleKey && titleKeys.has(titleKey)) continue;
       if (isTooSimilar(s.idx)) continue;
 
-      if (s.isEuropeSource) {
-        chosen.push(s);
-      }
+      if (!s.isEuropeSource) continue;
+
+      const axis = s.axisHint;
+      const needed = needsAxis();
+      if (needed.length > 0 && !needed.includes(axis)) continue;
+      if ((axisCounts.get(axis) || 0) >= maxPerAxis) continue;
+
+      chosen.push(s);
       if (domain) domainCount.set(domain, used + 1);
       if (titleKey) titleKeys.add(titleKey);
+      axisCounts.set(axis, (axisCounts.get(axis) || 0) + 1);
       if (chosen.length >= 5) break;
     }
 
@@ -559,6 +617,42 @@ export async function GET(req: NextRequest) {
         if (titleKey && titleKeys.has(titleKey)) continue;
         if (isTooSimilar(s.idx)) continue;
         if (s.score < 2.6) continue;
+        const axis = s.axisHint;
+        const needed = needsAxis();
+        if (needed.length > 0 && !needed.includes(axis)) continue;
+        if ((axisCounts.get(axis) || 0) >= maxPerAxis) continue;
+        chosen.push(s);
+        if (titleKey) titleKeys.add(titleKey);
+        axisCounts.set(axis, (axisCounts.get(axis) || 0) + 1);
+        if (chosen.length >= 5) break;
+      }
+    }
+
+    if (chosen.length < 5) {
+      for (const s of scored) {
+        if (chosen.find((x) => x.idx === s.idx)) continue;
+        const domain = String(s.article?.domain || "").toLowerCase();
+        const used = domain ? domainCount.get(domain) || 0 : 0;
+        if (domain && used >= 1) continue;
+        const titleKey = normalizeTitle(s.article?.title || "");
+        if (titleKey && titleKeys.has(titleKey)) continue;
+        if (isTooSimilar(s.idx)) continue;
+        chosen.push(s);
+        if (domain) domainCount.set(domain, used + 1);
+        if (titleKey) titleKeys.add(titleKey);
+        axisCounts.set(
+          s.axisHint,
+          (axisCounts.get(s.axisHint) || 0) + 1
+        );
+        if (chosen.length >= 5) break;
+      }
+    }
+
+    if (chosen.length < 5) {
+      for (const s of scored) {
+        if (chosen.find((x) => x.idx === s.idx)) continue;
+        const titleKey = normalizeTitle(s.article?.title || "");
+        if (titleKey && titleKeys.has(titleKey)) continue;
         chosen.push(s);
         if (titleKey) titleKeys.add(titleKey);
         if (chosen.length >= 5) break;
@@ -594,6 +688,7 @@ export async function GET(req: NextRequest) {
       if (fetchResult.status === "ok" && evidencePack.length >= 1) {
         const prompt = buildRuntimeUserPrompt({
           evidencePack,
+          bodyPoints,
           volumeSignals: c.volumeSignals,
           batchId,
         });
@@ -636,11 +731,17 @@ export async function GET(req: NextRequest) {
       }
       const originalTitle = String(primary?.title || "").trim();
       if (originalTitle) {
-        card.title = originalTitle;
-        card.original_title = originalTitle;
+        card.original_title = card.original_title || originalTitle;
       }
       card.fetch_status = fetchResult.status;
       card.fetch_error = fetchResult.error || undefined;
+      const fallbackScore = fetchResult.status === "ok" ? 60 : 45;
+      if (typeof card.impact_register_score !== "number")
+        card.impact_register_score = fallbackScore;
+      if (typeof card.impact_deposit_score !== "number")
+        card.impact_deposit_score = fallbackScore;
+      if (typeof card.impact_trading_score !== "number")
+        card.impact_trading_score = fallbackScore;
       if (fetchResult.status !== "ok") {
         card.needs_review = true;
         card.confidence = "低";
@@ -652,32 +753,15 @@ export async function GET(req: NextRequest) {
           "正文不可用，仅基于标题与元信息，影响暂无法确认（需人工确认）。";
         card.bd_angle = "口径建议：先说明已关注事件，等待更多官方细节确认。";
       }
-      if (bodyEvidence.length > 0) {
-        card.evidence = bodyEvidence.slice(0, 3);
-        card.evidence_points = bodyEvidence
-          .map((e) => e.text)
-          .filter(Boolean)
-          .slice(0, 3);
-      } else {
-        card.evidence = [];
-        card.evidence_note =
-          card.evidence_note || "未抓到正文/仅基于标题与元信息";
-      }
-      if (card.why_it_matters && card.evidence?.length) {
-        if (!/证据/.test(card.why_it_matters)) {
-          card.why_it_matters = `${card.why_it_matters}（见证据1）`;
-        }
-      }
-      if (card.bd_angle && card.evidence?.length) {
-        if (!/证据/.test(card.bd_angle)) {
-          card.bd_angle = `${card.bd_angle}（见证据1）`;
-        }
-      }
+      card.impact_axis = c.axisHint;
+      card.evidence = undefined;
+      card.evidence_points = undefined;
+      card.evidence_note = undefined;
       if (!card.source_region) {
         card.source_region = guessRegion(primary);
       }
       if (!c.isEuropeSource && !card.source_note) {
-        card.source_note = "非欧媒来源";
+        card.source_note = "非欧媒体来源";
       }
 
       cards.push({
@@ -733,7 +817,7 @@ export async function GET(req: NextRequest) {
     const msg = String(e?.message || e);
     let msgShort = msg.length > 4000 ? `${msg.slice(0, 4000)}…` : msg;
     if (/GDELT HTTP 429/i.test(msgShort)) {
-      msgShort = "GDELT 限流：请等待约 5-10 秒后再刷新。";
+      msgShort = "GDELT 限流：请等待 5-10 秒后再刷新。";
     }
 
     if (batchCreated) {
@@ -757,3 +841,4 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return GET(req);
 }
+

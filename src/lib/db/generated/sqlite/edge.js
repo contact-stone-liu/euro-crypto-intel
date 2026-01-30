@@ -1,4 +1,4 @@
-
+﻿
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const {
@@ -190,7 +190,7 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// prisma/sqlite/schema.prisma\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../../src/lib/db/generated/sqlite\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel Batch {\n  id             String   @id\n  createdAtUtc   DateTime @default(now())\n  windowStartUtc DateTime\n  windowEndUtc   DateTime\n\n  status String // \"running\" | \"success\" | \"failed\"\n  error  String?\n\n  gdeltQuery         String\n  gdeltUrl           String\n  articleCount       Int\n  europeArticleCount Int\n\n  supplementLinksText String? // CryptoPanic links JSON string (MVP 可空)\n\n  cards    TopicCard[]\n  articles IngestedArticle[]\n}\n\nmodel TopicCard {\n  id           String   @id @default(cuid())\n  createdAtUtc DateTime @default(now())\n\n  batchId    String\n  rank       Int\n  score      Float\n  clusterKey String\n\n  // 严格 JSON 的字符串化结果（SQLite 不支持 Json 类型，所以存 TEXT）\n  cardJsonText String\n\n  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)\n\n  @@unique([batchId, rank])\n}\n\nmodel IngestedArticle {\n  id           String   @id @default(cuid())\n  createdAtUtc DateTime @default(now())\n\n  batchId String\n\n  url           String\n  urlCanonical  String\n  title         String\n  excerpt       String?\n  domain        String?\n  sourceCountry String?\n  language      String?\n\n  seenDateUtc DateTime?\n\n  rawJsonText String\n\n  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)\n\n  @@unique([batchId, urlCanonical])\n}\n",
+  "inlineSchema": "// prisma/sqlite/schema.prisma\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../../src/lib/db/generated/sqlite\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel Batch {\n  id             String   @id\n  createdAtUtc   DateTime @default(now())\n  windowStartUtc DateTime\n  windowEndUtc   DateTime\n\n  status String // \"running\" | \"success\" | \"failed\"\n  error  String?\n\n  gdeltQuery         String\n  gdeltUrl           String\n  articleCount       Int\n  europeArticleCount Int\n\n  supplementLinksText String? // CryptoPanic links JSON string (MVP 鍙┖)\n\n  cards    TopicCard[]\n  articles IngestedArticle[]\n}\n\nmodel TopicCard {\n  id           String   @id @default(cuid())\n  createdAtUtc DateTime @default(now())\n\n  batchId    String\n  rank       Int\n  score      Float\n  clusterKey String\n\n  // 涓ユ牸 JSON 鐨勫瓧绗︿覆鍖栫粨鏋滐紙SQLite 涓嶆敮鎸?Json 绫诲瀷锛屾墍浠ュ瓨 TEXT锛塡n  cardJsonText String\n\n  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)\n\n  @@unique([batchId, rank])\n}\n\nmodel IngestedArticle {\n  id           String   @id @default(cuid())\n  createdAtUtc DateTime @default(now())\n\n  batchId String\n\n  url           String\n  urlCanonical  String\n  title         String\n  excerpt       String?\n  domain        String?\n  sourceCountry String?\n  language      String?\n\n  seenDateUtc DateTime?\n\n  rawJsonText String\n\n  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)\n\n  @@unique([batchId, urlCanonical])\n}\n",
   "inlineSchemaHash": "fd87dd289a3c1e0b7255c25ca214d219f20188b6ec10e0859e3fee17657adf78",
   "copyEngine": true
 }
@@ -213,4 +213,5 @@ if (typeof globalThis !== 'undefined' && globalThis['DEBUG'] || typeof process !
 const PrismaClient = getPrismaClient(config)
 exports.PrismaClient = PrismaClient
 Object.assign(exports, Prisma)
+
 

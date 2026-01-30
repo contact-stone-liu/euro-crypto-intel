@@ -1,4 +1,4 @@
-import { tokenize } from "@/lib/utils/text";
+﻿import { tokenize } from "@/lib/utils/text";
 
 export type Doc = {
   id: string;
@@ -20,7 +20,7 @@ export function buildTfIdf(docs: Doc[]): TfIdf {
     for (const t of seen) df.set(t, (df.get(t) || 0) + 1);
   }
 
-  // 过滤：至少出现在2篇文档里（更稳，减少噪音）；若过滤后为空，则退化为不过滤
+  // 杩囨护锛氳嚦灏戝嚭鐜板湪2绡囨枃妗ｉ噷锛堟洿绋筹紝鍑忓皯鍣煶锛夛紱鑻ヨ繃婊ゅ悗涓虹┖锛屽垯閫€鍖栦负涓嶈繃婊?
   let vocab = Array.from(df.entries())
     .filter(([, c]) => c >= 2)
     .sort((a, b) => b[1] - a[1])
@@ -30,7 +30,7 @@ export function buildTfIdf(docs: Doc[]): TfIdf {
     vocab = Array.from(df.keys());
   }
 
-  // 限制维度：最多 2000 词
+  // 闄愬埗缁村害锛氭渶澶?2000 璇?
   vocab = vocab.slice(0, 2000);
 
   const idf = new Map<string, number>();
@@ -65,3 +65,4 @@ export function cosine(a: number[], b: number[]): number {
   for (let i = 0; i < a.length; i++) s += a[i] * b[i];
   return s;
 }
+

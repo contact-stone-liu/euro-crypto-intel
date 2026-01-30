@@ -1,4 +1,4 @@
-export type PanicLink = {
+﻿export type PanicLink = {
   title: string;
   url: string;
   source_name?: string;
@@ -17,7 +17,7 @@ export async function fetchCryptoPanicLinks(params: {
   u.searchParams.set("auth_token", token);
   u.searchParams.set("public", "true");
   u.searchParams.set("kind", "news");
-  u.searchParams.set("regions", "en"); // MVP：先用英文区，后续可扩多语
+  u.searchParams.set("regions", "en"); // MVP锛氬厛鐢ㄨ嫳鏂囧尯锛屽悗缁彲鎵╁璇?
   u.searchParams.set("filter", "hot");
 
   const res = await fetch(u.toString(), { cache: "no-store" });
@@ -32,3 +32,4 @@ export async function fetchCryptoPanicLinks(params: {
     published_time_utc: r?.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString()
   })).filter(x => x.url);
 }
+

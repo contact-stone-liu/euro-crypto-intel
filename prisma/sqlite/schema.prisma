@@ -1,4 +1,4 @@
-// prisma/sqlite/schema.prisma
+﻿// prisma/sqlite/schema.prisma
 generator client {
   provider = "prisma-client-js"
   output   = "../../src/lib/db/generated/sqlite"
@@ -23,7 +23,7 @@ model Batch {
   articleCount        Int
   europeArticleCount  Int
 
-  supplementLinksText String?  // CryptoPanic links JSON string (MVP 可空)
+  supplementLinksText String?  // CryptoPanic links JSON string (MVP 鍙┖)
   llmProvider         String?
   llmModel            String?
   llmBaseUrl          String?
@@ -43,7 +43,7 @@ model TopicCard {
   score       Float
   clusterKey  String
 
-  // 严格 JSON 的字符串化结果（SQLite 不支持 Json 类型，所以存 TEXT）
+  // 涓ユ牸 JSON 鐨勫瓧绗︿覆鍖栫粨鏋滐紙SQLite 涓嶆敮鎸?Json 绫诲瀷锛屾墍浠ュ瓨 TEXT锛?
   cardJsonText String
 
   batch       Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
@@ -73,3 +73,4 @@ model IngestedArticle {
 
   @@unique([batchId, urlCanonical])
 }
+

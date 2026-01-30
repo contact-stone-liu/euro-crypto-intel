@@ -1,4 +1,4 @@
-const STOP = new Set([
+﻿const STOP = new Set([
   "the","a","an","and","or","to","of","in","on","for","with","as","by","at","from",
   "is","are","was","were","be","been","being","it","this","that","these","those",
   "will","may","might","can","could","should","would","about","into","over","under",
@@ -15,7 +15,7 @@ export function normalizeTitle(s: string): string {
 
 export function tokenize(s: string): string[] {
   const raw = (s || "").toLowerCase();
-  // 简化：按字母数字切分（多语种会弱一些，但 MVP 可跑）
+  // 绠€鍖栵細鎸夊瓧姣嶆暟瀛楀垏鍒嗭紙澶氳绉嶄細寮变竴浜涳紝浣?MVP 鍙窇锛?
   const parts = raw.split(/[^a-z0-9]+/g).filter(Boolean);
   return parts.filter(t => t.length >= 3 && !STOP.has(t));
 }
@@ -26,3 +26,4 @@ export function pickTopKeywords(freq: Map<string, number>, n: number): string[] 
     .slice(0, n)
     .map(([k]) => k);
 }
+

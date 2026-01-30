@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
   output   = "../../src/lib/db/generated/postgres"
 }
@@ -71,3 +71,4 @@ model IngestedArticle {
 
   @@unique([batchId, urlCanonical])
 }
+

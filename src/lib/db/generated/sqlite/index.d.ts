@@ -1,4 +1,4 @@
-
+﻿
 /**
  * Client
 **/
@@ -30,7 +30,7 @@ export type TopicCard = $Result.DefaultSelection<Prisma.$TopicCardPayload>
 export type IngestedArticle = $Result.DefaultSelection<Prisma.$IngestedArticlePayload>
 
 /**
- * ##  Prisma Client ʲˢ
+ * ##  Prisma Client 什刷
  * 
  * Type-safe database client for TypeScript & Node.js
  * @example
@@ -51,7 +51,7 @@ export class PrismaClient<
   [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['other'] }
 
     /**
-   * ##  Prisma Client ʲˢ
+   * ##  Prisma Client 什刷
    * 
    * Type-safe database client for TypeScript & Node.js
    * @example
@@ -1193,7 +1193,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Batches from the position of the cursor.
+     * Take `卤n` Batches from the position of the cursor.
      */
     take?: number
     /**
@@ -1839,7 +1839,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Batches from the position of the cursor.
+     * Take `卤n` Batches from the position of the cursor.
      */
     take?: number
     /**
@@ -1887,7 +1887,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Batches from the position of the cursor.
+     * Take `卤n` Batches from the position of the cursor.
      */
     take?: number
     /**
@@ -1935,7 +1935,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Batches from the position of the cursor.
+     * Take `卤n` Batches from the position of the cursor.
      */
     take?: number
     /**
@@ -2249,7 +2249,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` TopicCards from the position of the cursor.
+     * Take `卤n` TopicCards from the position of the cursor.
      */
     take?: number
     /**
@@ -2868,7 +2868,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` TopicCards from the position of the cursor.
+     * Take `卤n` TopicCards from the position of the cursor.
      */
     take?: number
     /**
@@ -2916,7 +2916,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` TopicCards from the position of the cursor.
+     * Take `卤n` TopicCards from the position of the cursor.
      */
     take?: number
     /**
@@ -2964,7 +2964,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` TopicCards from the position of the cursor.
+     * Take `卤n` TopicCards from the position of the cursor.
      */
     take?: number
     /**
@@ -3250,7 +3250,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` IngestedArticles from the position of the cursor.
+     * Take `卤n` IngestedArticles from the position of the cursor.
      */
     take?: number
     /**
@@ -3883,7 +3883,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` IngestedArticles from the position of the cursor.
+     * Take `卤n` IngestedArticles from the position of the cursor.
      */
     take?: number
     /**
@@ -3931,7 +3931,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` IngestedArticles from the position of the cursor.
+     * Take `卤n` IngestedArticles from the position of the cursor.
      */
     take?: number
     /**
@@ -3979,7 +3979,7 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` IngestedArticles from the position of the cursor.
+     * Take `卤n` IngestedArticles from the position of the cursor.
      */
     take?: number
     /**

@@ -1,4 +1,4 @@
-/* MVP: 不使用 Tailwind，避免依赖问题 */
+﻿/* MVP: 涓嶄娇鐢?Tailwind锛岄伩鍏嶄緷璧栭棶棰?*/
 html, body {
   padding: 0;
   margin: 0;
@@ -114,6 +114,12 @@ code {
   align-items: center;
   flex-wrap: wrap;
   word-break: break-word;
+}
+
+.card-subtitle {
+  margin-left: 38px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .card-rank {
@@ -295,3 +301,4 @@ code {
     grid-template-columns: 1fr;
   }
 }
+

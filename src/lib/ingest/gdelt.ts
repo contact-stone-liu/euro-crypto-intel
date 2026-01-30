@@ -1,4 +1,4 @@
-import { toGdeltDateTime } from "@/lib/utils/time";
+﻿import { toGdeltDateTime } from "@/lib/utils/time";
 
 export type GdeltArticle = {
   url: string;
@@ -37,13 +37,13 @@ export async function fetchGdeltArticles(params: {
   u.searchParams.set("startdatetime", start);
   u.searchParams.set("enddatetime", end);
   u.searchParams.set("maxrecords", String(maxRecords));
-  u.searchParams.set("sort", "HybridRel"); // 兼顾新鲜度+相关性（MVP）
+  u.searchParams.set("sort", "HybridRel"); // 鍏奸【鏂伴矞搴?鐩稿叧鎬э紙MVP锛?
   u.searchParams.set("format", "json");
 
   const res = await fetch(u.toString(), { cache: "no-store" });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`GDELT请求失败: ${res.status} ${t}`);
+    throw new Error(`GDELT璇锋眰澶辫触: ${res.status} ${t}`);
   }
 
   const json: any = await res.json();
@@ -53,11 +53,11 @@ export async function fetchGdeltArticles(params: {
     .map((a) => {
       const url = a?.url;
       const title = a?.title;
-      const seendate = a?.seendate; // 常见格式：20260113094500
+      const seendate = a?.seendate; // 甯歌鏍煎紡锛?0260113094500
       const source = a?.sourceCountry || a?.source || a?.domain;
       const lang = a?.language;
 
-      // seendate 转 ISO
+      // seendate 杞?ISO
       let publishedIso = new Date().toISOString();
       if (typeof seendate === "string" && seendate.length >= 14) {
         const y = seendate.slice(0, 4);
@@ -72,7 +72,7 @@ export async function fetchGdeltArticles(params: {
       return {
         url,
         title,
-        excerpt: a?.socialimage ? undefined : a?.summary || a?.snippet, // GDELT字段不稳定，尽量兼容
+        excerpt: a?.socialimage ? undefined : a?.summary || a?.snippet, // GDELT瀛楁涓嶇ǔ瀹氾紝灏介噺鍏煎
         source_name: typeof source === "string" ? source : safeDomain(url),
         published_time_utc: publishedIso,
         language: lang,
@@ -81,3 +81,4 @@ export async function fetchGdeltArticles(params: {
     })
     .filter((x) => x.url && x.title);
 }
+

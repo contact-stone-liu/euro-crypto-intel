@@ -1,4 +1,4 @@
-import { hoursBetweenUtc } from "@/lib/utils/time";
+﻿import { hoursBetweenUtc } from "@/lib/utils/time";
 
 export type ClusterSignals = {
   article_count: number;
@@ -7,21 +7,22 @@ export type ClusterSignals = {
 };
 
 export function recencyWeight(lastSeenUtc: Date, nowUtc: Date): number {
-  // 越新权重越高；简单可解释：6小时衰减一次
+  // 瓒婃柊鏉冮噸瓒婇珮锛涚畝鍗曞彲瑙ｉ噴锛?灏忔椂琛板噺涓€娆?
   const h = hoursBetweenUtc(nowUtc, lastSeenUtc);
   return 1 / (1 + h / 6);
 }
 
 export function mvpScore(sig: ClusterSignals, nowUtc: Date): number {
-  // MVP：score = article_count * ln(1+unique_source_count) * recency_weight
-  // 直觉：转载刷屏往往“源少、量大”，ln(1+source) 让多来源更吃香；
-  // 同时 recency 防止老新闻滞留。
+  // MVP锛歴core = article_count * ln(1+unique_source_count) * recency_weight
+  // 鐩磋锛氳浆杞藉埛灞忓線寰€鈥滄簮灏戙€侀噺澶р€濓紝ln(1+source) 璁╁鏉ユ簮鏇村悆棣欙紱
+  // 鍚屾椂 recency 闃叉鑰佹柊闂绘粸鐣欍€?
   return sig.article_count * Math.log(1 + sig.unique_source_count) * recencyWeight(sig.last_seen_utc, nowUtc);
 }
 
 /**
- * 增强版（可选）思路（不阻塞 MVP）：
- * - 同源转载惩罚：同一个 domain 的文章占比越高，扣分越多
- * - 标题重复惩罚：高度相似标题越多，扣分越多
- * 为什么能避免转载刷屏：转载=同域/同标题的“复制粘贴”，惩罚会把它们的边际贡献压低。
+ * 澧炲己鐗堬紙鍙€夛級鎬濊矾锛堜笉闃诲 MVP锛夛細
+ * - 鍚屾簮杞浇鎯╃綒锛氬悓涓€涓?domain 鐨勬枃绔犲崰姣旇秺楂橈紝鎵ｅ垎瓒婂
+ * - 鏍囬閲嶅鎯╃綒锛氶珮搴︾浉浼兼爣棰樿秺澶氾紝鎵ｅ垎瓒婂
+ * 涓轰粈涔堣兘閬垮厤杞浇鍒峰睆锛氳浆杞?鍚屽煙/鍚屾爣棰樼殑鈥滃鍒剁矘璐粹€濓紝鎯╃綒浼氭妸瀹冧滑鐨勮竟闄呰础鐚帇浣庛€?
  */
+

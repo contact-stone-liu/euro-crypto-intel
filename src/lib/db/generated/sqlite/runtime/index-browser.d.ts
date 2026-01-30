@@ -1,4 +1,4 @@
-declare class AnyNull extends NullTypesEnumValue {
+﻿declare class AnyNull extends NullTypesEnumValue {
 }
 
 declare type Args<T, F extends Operation> = T extends {
@@ -363,3 +363,4 @@ declare function validator<C, M extends Exclude<keyof C, `$${string}`>, O extend
 declare function validator<C, M extends Exclude<keyof C, `$${string}`>, O extends keyof C[M] & Operation, P extends keyof Args<C[M], O>>(client: C, model: M, operation: O, prop: P): <S>(select: Exact<S, Args<C[M], O>[P]>) => S;
 
 export { }
+

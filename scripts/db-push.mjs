@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+﻿import { spawnSync } from "node:child_process";
 
 const url = process.env.DATABASE_URL || "";
 const isPostgres = url.startsWith("postgres://") || url.startsWith("postgresql://");
@@ -30,3 +30,4 @@ if (g.status !== 0) {
 }
 
 console.log("[db-push] done");
+

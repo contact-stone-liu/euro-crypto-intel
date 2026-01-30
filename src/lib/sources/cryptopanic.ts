@@ -1,4 +1,4 @@
-const TIMEOUT_MS = 12_000;
+﻿const TIMEOUT_MS = 12_000;
 
 export type CryptoPanicItem = {
   url: string;
@@ -70,3 +70,4 @@ export async function fetchCryptoPanicLinks(): Promise<{
     clearTimeout(t);
   }
 }
+

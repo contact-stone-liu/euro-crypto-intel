@@ -1,4 +1,4 @@
-export function nowUtc(): Date {
+﻿export function nowUtc(): Date {
   return new Date(new Date().toISOString());
 }
 
@@ -8,7 +8,7 @@ export function hoursBetweenUtc(a: Date, b: Date): number {
 }
 
 export function toGdeltDateTime(dt: Date): string {
-  // GDELT 需要 YYYYMMDDHHMMSS（UTC）
+  // GDELT 闇€瑕?YYYYMMDDHHMMSS锛圲TC锛?
   const iso = dt.toISOString(); // 2026-01-13T...
   const s = iso.replace(/[-:]/g, "").replace("T", "").slice(0, 14);
   return s + "00";
@@ -17,3 +17,4 @@ export function toGdeltDateTime(dt: Date): string {
 export function isoUtc(dt: Date): string {
   return dt.toISOString();
 }
+

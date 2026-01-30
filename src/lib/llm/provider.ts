@@ -1,4 +1,4 @@
-import { RUNTIME_PROMPT } from "@/lib/prompts/runtimePrompt";
+﻿import { RUNTIME_PROMPT } from "@/lib/prompts/runtimePrompt";
 import { TopicCard, TopicCardSchema } from "@/lib/types/topicCard";
 
 type EvidenceItem = {
@@ -15,11 +15,19 @@ export async function generateCardWithLLM(input: {
 }): Promise<TopicCard | null> {
   const provider = (process.env.LLM_PROVIDER || "").trim();
   const apiKey = (process.env.LLM_API_KEY || "").trim();
-  let baseUrl = (process.env.LLM_BASE_URL || "https://api.openai.com/v1").trim();
+  let baseUrl = (process.env.LLM_BASE_URL || "").trim();
   const model = (process.env.LLM_MODEL || "").trim();
+  const timeoutMs = Number(process.env.LLM_TIMEOUT_MS || "12000");
 
-  // 没有 key 就返回 null，让上层走降级模板
-  if (!apiKey || !model || provider !== "openai_compatible") return null;
+  const isOpenAiCompat = provider === "openai_compatible" || provider === "gemini";
+  const defaultBase =
+    provider === "gemini"
+      ? "https://generativelanguage.googleapis.com/v1beta/openai"
+      : "https://api.openai.com/v1";
+  if (!baseUrl) baseUrl = defaultBase;
+
+  // No key/model or incompatible provider: fall back to template output.
+  if (!apiKey || !model || !isOpenAiCompat) return null;
 
   const body = {
     model,
@@ -32,39 +40,45 @@ export async function generateCardWithLLM(input: {
 
   baseUrl = normalizeBaseUrl(baseUrl);
 
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error(
-      `[llm] failed ${res.status} ${res.statusText}: ${errText.slice(0, 300)}`
-    );
-    return null;
-  }
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
 
-  const json: any = await res.json();
-  const text: string = json?.choices?.[0]?.message?.content || "";
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(
+        `[llm] failed ${res.status} ${res.statusText}: ${errText.slice(0, 300)}`
+      );
+      return null;
+    }
 
-  // 尝试直接 parse JSON
+    const json: any = await res.json();
+    const text: string = json?.choices?.[0]?.message?.content || "";
+
+  // 灏濊瘯鐩存帴 parse JSON
   const parsed = safeJsonParse(text);
   if (!parsed) return null;
 
   const z = TopicCardSchema.safeParse(parsed);
   if (!z.success) return null;
 
-  // 关键：禁止编造证据链接 —— url 必须来自 evidencePack
+  // 鍏抽敭锛氱姝㈢紪閫犺瘉鎹摼鎺?鈥斺€?url 蹇呴』鏉ヨ嚜 evidencePack
   const allowed = new Set(input.evidencePack.map((e) => e.url));
   if (!allowed.has(z.data.url)) return null;
 
-  // 强制中文输出：除标题外必须含中文（标题可为原文英文）
+  // 寮哄埗涓枃杈撳嚭锛氶櫎鏍囬澶栧繀椤诲惈涓枃锛堟爣棰樺彲涓哄師鏂囪嫳鏂囷級
   if (
+    !hasChinese(z.data.title) ||
     !hasChinese(z.data.event_one_liner) ||
     !hasChinese(z.data.news_brief) ||
     !hasChinese(z.data.why_it_matters) ||
@@ -73,12 +87,18 @@ export async function generateCardWithLLM(input: {
     return null;
   }
 
-  return z.data;
+    return z.data;
+  } catch (e: any) {
+    console.error(`[llm] fetch failed: ${String(e?.message || e)}`);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function safeJsonParse(s: string): any | null {
   try {
-    // 有些模型会包 ```json ... ```，这里剥离
+    // 鏈変簺妯″瀷浼氬寘 ```json ... ```锛岃繖閲屽墺绂?
     const trimmed = s.trim()
       .replace(/^```json/i, "")
       .replace(/^```/i, "")
@@ -105,3 +125,4 @@ function normalizeBaseUrl(raw: string) {
   }
   return base;
 }
+

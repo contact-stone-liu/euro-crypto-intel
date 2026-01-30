@@ -1,36 +1,43 @@
-export const RUNTIME_PROMPT = `
+﻿export const RUNTIME_PROMPT = `
 You are an editor for a Europe-focused crypto intelligence dashboard. Output must be strict JSON only (no markdown).
-Do NOT fabricate sources; url must come from evidence pack. You output a single real news card, not a topic cluster.
+Do NOT fabricate sources; url must come from evidence pack.
 
-TITLE RULE: title MUST be exactly evidence[0].title (original title). Do not translate or rewrite. Title can be English.
+Title rules:
+- original_title MUST be exactly evidence[0].title (original title)
+- title MUST be a Chinese translation of original_title (keep proper nouns; no English sentence)
 
-Language: All fields must be Chinese except proper nouns and the title. No long English paragraphs.
+Language: All fields must be Chinese except proper nouns and original_title.
+Avoid templated phrasing; be specific and informative.
 
 Fields (strict):
-- title: must equal evidence[0].title (original title)
-- original_title: same as title
+- title: Chinese translation of original_title
+- original_title: must equal evidence[0].title
 - source_name
 - source_region (optional)
 - published_time (with timezone)
-- source_note (use "非欧媒来源" if non-EU source)
+- source_note (use "非欧媒体来源" if non-EU source)
 - url (must be from evidence pack)
-- event_one_liner: <=60 Chinese chars
-- news_brief: <=100 Chinese chars; must include "对 trader 影响：...；对 BD 影响：..."
+- event_one_liner: <=60 Chinese chars, meaningful summary
+- news_brief: <=120 Chinese chars, specific facts, no templates
 - impact_axis: one of [注册/入金/交易]
 - severity: one of [高/中/低]
 - impact_register: one of [强负面/负面/中性/正面/强正面]
-- impact_deposit: same
-- impact_trading: same
-- why_it_matters: <=90 Chinese chars, must tie to evidence (mention 证据1/2)
-- bd_angle: <=90 Chinese chars, must tie to evidence (mention 证据1/2)
-- evidence: array of 1-3 items, each {text, url, source_name?}
-- evidence_points (optional): 1-3 short points
+- impact_register_score: integer 0-100
+- impact_deposit: one of [强负面/负面/中性/正面/强正面]
+- impact_deposit_score: integer 0-100
+- impact_trading: one of [强负面/负面/中性/正面/强正面]
+- impact_trading_score: integer 0-100
+- score guidance: 0-20 very negative, 40-60 neutral, 80-100 very positive
+- why_it_matters: <=90 Chinese chars, explain mechanism/implication
+- bd_angle: <=90 Chinese chars, actionable BD angle
 - volume_signals: {article_count, unique_source_count, last_seen_utc}
 - confidence: [高/中/低]
 - batch_id
 - fetch_status (optional): ok/forbidden/timeout/no_content/error
 - fetch_error (optional)
 - needs_review (optional, true if正文不可用)
+
+Do NOT output evidence/evidence_points.
 `.trim();
 
 export type EvidenceItem = {
@@ -43,6 +50,7 @@ export type EvidenceItem = {
 
 export function buildRuntimeUserPrompt(input: {
   evidencePack: EvidenceItem[];
+  bodyPoints?: string[];
   volumeSignals: {
     article_count: number;
     unique_source_count: number;
@@ -53,6 +61,9 @@ export function buildRuntimeUserPrompt(input: {
 }) {
   const evidenceJson = JSON.stringify(input.evidencePack, null, 2);
   const volumeJson = JSON.stringify(input.volumeSignals, null, 2);
+  const bodyJson = input.bodyPoints?.length
+    ? JSON.stringify(input.bodyPoints.slice(0, 5), null, 2)
+    : "";
   const mustInclude =
     input.titleMustInclude && input.titleMustInclude.length > 0
       ? `Title must include at least one of these tokens: ${input.titleMustInclude.join(
@@ -63,11 +74,15 @@ export function buildRuntimeUserPrompt(input: {
     "Evidence pack (only these urls allowed):",
     "evidence[0] is the primary article; evidence[1-2] are supporting sources.",
     evidenceJson,
+    bodyJson ? "正文要点（可选，用于更好的摘要）：" : "",
+    bodyJson || "",
     "",
     `Primary original title: ${input.evidencePack?.[0]?.title || ""}`,
     mustInclude,
+    "Translate the original title into Chinese for the title field.",
     "Generate 1 JSON card. All fields required unless marked optional.",
     `volume_signals: ${volumeJson}`,
     `batch_id: ${input.batchId}`,
   ].join("\n");
 }
+
